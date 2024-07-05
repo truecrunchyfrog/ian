@@ -1,0 +1,115 @@
+package ian
+
+import (
+	"errors"
+	"time"
+)
+
+const DefaultTimeLayout string = "_2 Jan 15:04 MST 2006"
+
+var formats []string = []string{
+	"2/1",
+  "2/1 15:04",
+  "2/1 3:04PM",
+  "2/1 15:04 MST",
+  "2/1 3:04PM -0700",
+
+	"2/1/2006",
+  "2/1/2006 15:04",
+  "2/1/2006 3:04PM",
+  "2/1/2006 15:04 MST",
+  "2/1/2006 3:04PM -0700",
+
+	"2006/1/2",
+  "2006/1/2 15:04",
+  "2006/1/2 3:04PM",
+  "2006/1/2 15:04 MST",
+  "2006/1/2 3:04PM -0700",
+
+	"1/2 2006",
+  "1/2 2006 15:04",
+  "1/2 2006 3:04PM",
+  "1/2 2006 15:04 MST",
+  "1/2 2006 3:04PM -0700",
+
+	"2 Jan",
+  "2 Jan 15:04",
+  "2 Jan 3:04PM",
+  "2 Jan 15:04 MST",
+  "2 Jan 3:04PM -0700",
+
+  "2 January",
+  "2 January 15:04",
+  "2 January 3:04PM",
+  "2 January 15:04 MST",
+  "2 January 3:04PM -0700",
+
+  "2 Jan 2006",
+  "2 Jan 2006 15:04",
+  "2 Jan 2006 3:04PM",
+  "2 Jan 2006 15:04 MST",
+  "2 Jan 2006 3:04PM -0700",
+
+	"Jan 2",
+  "Jan 2 15:04",
+  "Jan 2 3:04PM",
+  "Jan 2 15:04 MST",
+  "Jan 2 3:04PM -0700",
+
+  "January 2",
+  "January 2 15:04",
+  "January 2 3:04PM",
+  "January 2 15:04 MST",
+  "January 2 3:04PM -0700",
+
+  "Jan 2 2006",
+  "Jan 2 2006 15:04",
+  "Jan 2 2006 3:04PM",
+  "Jan 2 2006 15:04 MST",
+  "Jan 2 2006 3:04PM -0700",
+
+  "January 2 2006",
+  "January 2 2006 15:04",
+  "January 2 2006 3:04PM",
+  "January 2 2006 15:04 MST",
+  "January 2 2006 3:04PM -0700",
+
+	"2006-01-02",
+  "2006-01-02 15:04",
+  "2006-01-02 3:04PM",
+  "2006-01-02 15:04 MST",
+  "2006-01-02 3:04PM -0700",
+
+  "02-01-2006",
+  "02-01-2006 15:04",
+  "02-01-2006 3:04PM",
+  "02-01-2006 15:04 MST",
+  "02-01-2006 3:04PM -0700",
+}
+
+// ParseDateTime parses a string against many different formats.
+// If timezone is omitted, the local is assumed (from global variable `UseTimezone`).
+// If year is omitted, the current one is used.
+func ParseDateTime(input string, timeZone *time.Location) (time.Time, error) {
+	for _, format := range formats {
+		t, err := time.ParseInLocation(format, input, timeZone)
+		if err != nil {
+			continue // Format mismatch. Try the next one.
+		}
+		if t.Year() == 0 {
+			t = time.Date(
+				time.Now().Year(), // Update year if missing
+				t.Month(),
+				t.Day(),
+				t.Hour(),
+				t.Minute(),
+				t.Second(),
+				t.Nanosecond(),
+				t.Location(),
+			)
+		}
+		return t, nil
+	}
+
+	return time.Time{}, errors.New("'" + input + "' does not match any date/time format!")
+}
