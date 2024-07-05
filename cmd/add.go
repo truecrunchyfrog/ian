@@ -8,9 +8,11 @@ import (
 	"github.com/truecrunchyfrog/ian"
 )
 
+var calendar string
 var duration string
 
 func init() {
+  addCommand.Flags().StringVarP(&calendar, "calendar", "c", "", "Add the event to a specified calendar (e.g. 'share'), instead of the main calendar (''). Calendars are the directories inside the root. Calendars can be recursive, e.g.: 'share/family'.")
 	addCommand.Flags().StringVarP(&duration, "duration", "d", "", "Duration of the event from start to end. Use instead of providing the 'end' argument. Example: --duration 1h30m to set 'end' to 'start' with 1 hour and 30 minutes added.")
 
 	rootCmd.AddCommand(addCommand)

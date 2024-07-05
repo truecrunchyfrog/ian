@@ -15,7 +15,7 @@ import (
 
 // SanitizePath escapes a string path. It prevents root traversal (/) and parent traversal (..), and just cleans it too.
 func SanitizePath(path string) string {
-  return filepath.Join("/", path)[1:]
+	return filepath.Join("/", path)[1:]
 }
 
 type Instance struct {
@@ -24,10 +24,19 @@ type Instance struct {
 	Events []Event
 }
 
+// Work performs maintenance work and is run on every instance creation.
+// It is used to e.g. update sources.
+func (instance *Instance) Work() error {
+	if err := instance.UpdateSources(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CreateEvent creates an event in the instance and returns it.
 // containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
 func (instance *Instance) CreateEvent(props EventProperties, containerDir string) error {
-  containerDir = SanitizePath(containerDir)
+	containerDir = SanitizePath(containerDir)
 
 	path, err := instance.getAvailableFilepath(
 		filepath.Join(instance.Root, props.FormatName()))
@@ -35,13 +44,13 @@ func (instance *Instance) CreateEvent(props EventProperties, containerDir string
 		return err
 	}
 
-  relPath := SanitizePath(filepath.Join(containerDir, path))
+	relPath := SanitizePath(filepath.Join(containerDir, path))
 	(&Event{
 		Path:       relPath,
 		Properties: props,
 	}).Write(instance)
 
-  instance.ReadEvent(relPath)
+	instance.ReadEvent(relPath)
 
 	return nil
 }
@@ -66,7 +75,7 @@ func (instance *Instance) getAvailableFilepath(originalPath string) (string, err
 }
 
 func (instance *Instance) ReadEvent(relPath string) error {
-  relPath = SanitizePath(relPath)
+	relPath = SanitizePath(relPath)
 	path := filepath.Join(instance.Root, relPath)
 
 	props, err := parseEventFile(path)
@@ -125,6 +134,10 @@ func CreateInstance(root string) (*Instance, error) {
 		Events: []Event{},
 	}
 
+	if err := instance.Work(); err != nil {
+		return nil, err
+	}
+
 	return instance, nil
 }
 
@@ -147,13 +160,12 @@ func (event *Event) GetRealPath(instance *Instance) string {
 // Creates any necessary directories.
 func (event *Event) Write(instance *Instance) error {
 	buf := new(bytes.Buffer)
-	err := toml.NewEncoder(buf).Encode(event)
-	if err != nil {
+	if err := toml.NewEncoder(buf).Encode(event); err != nil {
 		return err
 	}
 
-  path := event.GetRealPath(instance)
-  CreateDir(filepath.Dir(path)) // Create parent folder(s) leading to path.
+	path := event.GetRealPath(instance)
+	CreateDir(filepath.Dir(path)) // Create parent folder(s) leading to path.
 
 	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
 		return err
@@ -185,16 +197,16 @@ type EventProperties struct {
 }
 
 func (p *EventProperties) Verify() error {
-  switch {
-  case p.Summary == "":
-    return errors.New("summary cannot be empty")
-  case p.Start.After(p.End):
-    return errors.New("start cannot be chronologically after end")
-  case p.Created.After(p.Modified):
-    return errors.New("created cannot be chronologically after modified")
-  default:
-    return nil
-  }
+	switch {
+	case p.Summary == "":
+		return errors.New("summary cannot be empty")
+	case p.Start.After(p.End):
+		return errors.New("start cannot be chronologically after end")
+	case p.Created.After(p.Modified):
+		return errors.New("created cannot be chronologically after modified")
+	default:
+		return nil
+	}
 }
 
 func (props *EventProperties) FormatName() string {
@@ -213,6 +225,16 @@ func CreateDir(name string) error {
 		return err
 	}
 	return nil
+}
+
+func CreateFileIfMissing(name string) error {
+  CreateDir(filepath.Dir(name))
+	if f, err := os.OpenFile(name, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err != nil {
+		return err
+	} else {
+		f.Close()
+		return nil
+	}
 }
 
 // parseEventFile simply reads a file and parses it for properties.

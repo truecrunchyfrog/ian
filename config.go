@@ -1,8 +1,10 @@
 package ian
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -25,6 +27,20 @@ func ReadConfig(root string) (CalendarConfig, error) {
 	if _, err := toml.Decode(string(buf), &config); err != nil {
 		return CalendarConfig{}, nil
 	}
+
+  for _, source := range config.Import {
+    if source.Lifetime != "" {
+      d, err := time.ParseDuration(source.Lifetime)
+      if err != nil {
+        return CalendarConfig{}, err
+      }
+      if d < 0 {
+        return CalendarConfig{}, errors.New("in configuration source '" + source.Name + "': lifetime cannot be negative.")
+      }
+
+      source._Lifetime = d
+    }
+  }
 
 	return config, nil
 }
