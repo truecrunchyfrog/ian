@@ -55,26 +55,33 @@ func addCommandRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-  if startDate.After(endDate) {
-    log.Fatal("'start' must be chronologically previous to 'end'")
-  }
-
-	event := ian.CalendarEvent{
+	props := ian.EventProperties{
 		Summary:  args[0],
 		Start: startDate,
 		End:   endDate,
 	}
 
-	if err := ian.CreateEventFile(event, GetRoot()); err != nil {
+  if err := props.Verify(); err != nil {
+    log.Fatal("invalid event: ", err)
+  }
+
+  instance, err := ian.CreateInstance(GetRoot())
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  instance.CreateEvent(props, "")
+
+	if err := instance; err != nil {
 		log.Fatal(err)
 	}
 
 	eventDuration := endDate.Sub(startDate)
 
 	log.Printf("%s\n\n%s (%s)\n%s\n",
-		event.Summary,
-		event.Start.Format(ian.DefaultTimeLayout),
+		props.Summary,
+		props.Start.Format(ian.DefaultTimeLayout),
 		eventDuration.String(),
-		event.End.Format(ian.DefaultTimeLayout),
+		props.End.Format(ian.DefaultTimeLayout),
 	)
 }

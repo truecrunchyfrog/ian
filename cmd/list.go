@@ -28,32 +28,35 @@ var listCommand = &cobra.Command{
 }
 
 func listCommandRun(cmd *cobra.Command, args []string) {
-	allEvents, err := ian.ReadEventDir(GetRoot())
+	allEvents, err := ian.ReadEvents(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-  now := time.Now()
+	now := time.Now()
 
-  if !showPast {
-    allEvents = slices.DeleteFunc(allEvents, func(event ian.CalendarEvent) bool {
-      return event.End.Before(now)
-    })
-  }
-
-	if showNow {
-		allEvents = append(allEvents, ian.CalendarEvent{
-			Summary:  "--- now ---",
-			Start: now,
-			End:   now,
+	if !showPast {
+		allEvents = slices.DeleteFunc(allEvents, func(event ian.Event) bool {
+			return event.Properties.End.Before(now)
 		})
 	}
 
-	slices.SortFunc(allEvents, func(a ian.CalendarEvent, b ian.CalendarEvent) int {
+	if showNow {
+		allEvents = append(allEvents, ian.Event{
+			Properties: ian.EventProperties{
+				Summary: "--- now ---",
+				Start:   now,
+				End:     now,
+			},
+			Constant: true,
+		})
+	}
+
+	slices.SortFunc(allEvents, func(a ian.Event, b ian.Event) int {
 		switch {
-		case a.Start.Before(b.Start):
+		case a.Properties.Start.Before(b.Properties.Start):
 			return -1
-		case a.Start.After(b.Start):
+		case a.Properties.Start.After(b.Properties.Start):
 			return 1
 		default:
 			return 0

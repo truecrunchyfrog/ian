@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/truecrunchyfrog/ian"
 )
 
 var (
@@ -29,9 +30,7 @@ func Execute() error {
 
 func GetRoot() string {
 	dir := viper.GetString("root")
-	if err := os.Mkdir(dir, 0755); !os.IsExist(err) {
-		log.Println("created missing root", dir)
-	}
+  ian.CreateDir(dir)
 	return dir
 }
 
