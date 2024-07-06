@@ -13,6 +13,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+var Verbose bool
+
 // SanitizePath escapes a string path. It prevents root traversal (/) and parent traversal (..), and just cleans it too.
 func SanitizePath(path string) string {
 	return filepath.Join("/", path)[1:]
@@ -27,10 +29,17 @@ type Instance struct {
 // Work performs maintenance work and is run on every instance creation.
 // It is used to e.g. update sources.
 func (instance *Instance) Work() error {
+	if err := instance.ReadEvents(); err != nil {
+		return err
+	}
 	if err := instance.UpdateSources(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (instance *Instance) clearDir(name string) error {
+  return os.RemoveAll(filepath.Join(instance.Root, SanitizePath(name)))
 }
 
 // CreateEvent creates an event in the instance and returns it.
@@ -39,18 +48,17 @@ func (instance *Instance) CreateEvent(props EventProperties, containerDir string
 	containerDir = SanitizePath(containerDir)
 
 	path, err := instance.getAvailableFilepath(
-		filepath.Join(instance.Root, props.FormatName()))
+		filepath.Join(containerDir, SanitizePath(props.FormatName())))
 	if err != nil {
 		return err
 	}
 
-	relPath := SanitizePath(filepath.Join(containerDir, path))
 	(&Event{
-		Path:       relPath,
+		Path:       path,
 		Properties: props,
 	}).Write(instance)
 
-	instance.ReadEvent(relPath)
+	instance.ReadEvent(path)
 
 	return nil
 }
@@ -63,7 +71,7 @@ func (instance *Instance) getAvailableFilepath(originalPath string) (string, err
 			return "", errors.New("cannot create file with that name: tried to add numerical suffix up to 10, but files by those names already exist.")
 		}
 
-		if _, err := os.Stat(originalPath + pathSuffix); err == nil {
+		if _, err := os.Stat(filepath.Join(instance.Root, originalPath + pathSuffix)); err == nil {
 			// File already exists
 			pathSuffix = "_" + fmt.Sprint(i)
 			continue
@@ -122,7 +130,7 @@ func (instance *Instance) ReadEvents() error {
 	return nil
 }
 
-func CreateInstance(root string) (*Instance, error) {
+func CreateInstance(root string, performWork bool) (*Instance, error) {
 	config, err := ReadConfig(root)
 	if err != nil {
 		return nil, err
@@ -134,8 +142,10 @@ func CreateInstance(root string) (*Instance, error) {
 		Events: []Event{},
 	}
 
-	if err := instance.Work(); err != nil {
-		return nil, err
+	if performWork {
+		if err := instance.Work(); err != nil {
+			return nil, err
+		}
 	}
 
 	return instance, nil
@@ -160,7 +170,7 @@ func (event *Event) GetRealPath(instance *Instance) string {
 // Creates any necessary directories.
 func (event *Event) Write(instance *Instance) error {
 	buf := new(bytes.Buffer)
-	if err := toml.NewEncoder(buf).Encode(event); err != nil {
+	if err := toml.NewEncoder(buf).Encode(event.Properties); err != nil {
 		return err
 	}
 
@@ -214,7 +224,7 @@ func (props *EventProperties) FormatName() string {
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, "/", "-")
 	name = strings.ReplaceAll(name, `\`, "-")
-	name = strings.ReplaceAll(name, " ", "-")
+	//name = strings.ReplaceAll(name, " ", "-")
 	name = strings.ReplaceAll(name, ".", "_")
 
 	return name
@@ -228,7 +238,7 @@ func CreateDir(name string) error {
 }
 
 func CreateFileIfMissing(name string) error {
-  CreateDir(filepath.Dir(name))
+	CreateDir(filepath.Dir(name))
 	if f, err := os.OpenFile(name, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err != nil {
 		return err
 	} else {

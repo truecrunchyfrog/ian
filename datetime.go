@@ -9,82 +9,113 @@ const DefaultTimeLayout string = "_2 Jan 15:04 MST 2006"
 
 var formats []string = []string{
 	"2/1",
-  "2/1 15:04",
-  "2/1 3:04PM",
-  "2/1 15:04 MST",
-  "2/1 3:04PM -0700",
+	"2/1 MST",
+	"2/1 -0700",
+	"2/1 15:04",
+	"2/1 3:04PM",
+	"2/1 15:04 MST",
+	"2/1 3:04PM -0700",
 
 	"2/1/2006",
-  "2/1/2006 15:04",
-  "2/1/2006 3:04PM",
-  "2/1/2006 15:04 MST",
-  "2/1/2006 3:04PM -0700",
+	"2/1/2006 MST",
+	"2/1/2006 -0700",
+	"2/1/2006 15:04",
+	"2/1/2006 3:04PM",
+	"2/1/2006 15:04 MST",
+	"2/1/2006 3:04PM -0700",
 
 	"2006/1/2",
-  "2006/1/2 15:04",
-  "2006/1/2 3:04PM",
-  "2006/1/2 15:04 MST",
-  "2006/1/2 3:04PM -0700",
+	"2006/1/2 MST",
+	"2006/1/2 -0700",
+	"2006/1/2 15:04",
+	"2006/1/2 3:04PM",
+	"2006/1/2 15:04 MST",
+	"2006/1/2 3:04PM -0700",
 
 	"1/2 2006",
-  "1/2 2006 15:04",
-  "1/2 2006 3:04PM",
-  "1/2 2006 15:04 MST",
-  "1/2 2006 3:04PM -0700",
+	"1/2 2006 MST",
+	"1/2 2006 -0700",
+	"1/2 2006 15:04",
+	"1/2 2006 3:04PM",
+	"1/2 2006 15:04 MST",
+	"1/2 2006 3:04PM -0700",
 
 	"2 Jan",
-  "2 Jan 15:04",
-  "2 Jan 3:04PM",
-  "2 Jan 15:04 MST",
-  "2 Jan 3:04PM -0700",
+	"2 Jan MST",
+	"2 Jan -0700",
+	"2 Jan 15:04",
+	"2 Jan 3:04PM",
+	"2 Jan 15:04 MST",
+	"2 Jan 3:04PM -0700",
 
-  "2 January",
-  "2 January 15:04",
-  "2 January 3:04PM",
-  "2 January 15:04 MST",
-  "2 January 3:04PM -0700",
+	"2 January",
+	"2 January MST",
+	"2 January -0700",
+	"2 January 15:04",
+	"2 January 3:04PM",
+	"2 January 15:04 MST",
+	"2 January 3:04PM -0700",
 
-  "2 Jan 2006",
-  "2 Jan 2006 15:04",
-  "2 Jan 2006 3:04PM",
-  "2 Jan 2006 15:04 MST",
-  "2 Jan 2006 3:04PM -0700",
+	"2 Jan 2006",
+	"2 Jan 2006 MST",
+	"2 Jan 2006 -0700",
+	"2 Jan 2006 15:04",
+	"2 Jan 2006 3:04PM",
+	"2 Jan 2006 15:04 MST",
+	"2 Jan 2006 3:04PM -0700",
 
 	"Jan 2",
-  "Jan 2 15:04",
-  "Jan 2 3:04PM",
-  "Jan 2 15:04 MST",
-  "Jan 2 3:04PM -0700",
+	"Jan 2 MST",
+	"Jan 2 -0700",
+	"Jan 2 15:04",
+	"Jan 2 3:04PM",
+	"Jan 2 15:04 MST",
+	"Jan 2 3:04PM -0700",
 
-  "January 2",
-  "January 2 15:04",
-  "January 2 3:04PM",
-  "January 2 15:04 MST",
-  "January 2 3:04PM -0700",
+	"January 2",
+	"January 2 MST",
+	"January 2 -0700",
+	"January 2 15:04",
+	"January 2 3:04PM",
+	"January 2 15:04 MST",
+	"January 2 3:04PM -0700",
 
-  "Jan 2 2006",
-  "Jan 2 2006 15:04",
-  "Jan 2 2006 3:04PM",
-  "Jan 2 2006 15:04 MST",
-  "Jan 2 2006 3:04PM -0700",
+	"Jan 2 2006",
+	"Jan 2 2006 MST",
+	"Jan 2 2006 -0700",
+	"Jan 2 2006 15:04",
+	"Jan 2 2006 3:04PM",
+	"Jan 2 2006 15:04 MST",
+	"Jan 2 2006 3:04PM -0700",
 
-  "January 2 2006",
-  "January 2 2006 15:04",
-  "January 2 2006 3:04PM",
-  "January 2 2006 15:04 MST",
-  "January 2 2006 3:04PM -0700",
+	"January 2 2006",
+	"January 2 2006 MST",
+	"January 2 2006 -0700",
+	"January 2 2006 15:04",
+	"January 2 2006 3:04PM",
+	"January 2 2006 15:04 MST",
+	"January 2 2006 3:04PM -0700",
 
 	"2006-01-02",
-  "2006-01-02 15:04",
-  "2006-01-02 3:04PM",
-  "2006-01-02 15:04 MST",
-  "2006-01-02 3:04PM -0700",
+	"2006-01-02 MST",
+	"2006-01-02 -0700",
+	"2006-01-02 15:04",
+	"2006-01-02 3:04PM",
+	"2006-01-02 15:04 MST",
+	"2006-01-02 3:04PM -0700",
 
-  "02-01-2006",
-  "02-01-2006 15:04",
-  "02-01-2006 3:04PM",
-  "02-01-2006 15:04 MST",
-  "02-01-2006 3:04PM -0700",
+	"02-01-2006",
+	"02-01-2006 MST",
+	"02-01-2006 -0700",
+	"02-01-2006 15:04",
+	"02-01-2006 3:04PM",
+	"02-01-2006 15:04 MST",
+	"02-01-2006 3:04PM -0700",
+}
+
+var timeFormats []string = []string{
+	"15:04",
+	"3:04PM",
 }
 
 // ParseDateTime parses a string against many different formats.
@@ -112,4 +143,16 @@ func ParseDateTime(input string, timeZone *time.Location) (time.Time, error) {
 	}
 
 	return time.Time{}, errors.New("'" + input + "' does not match any date/time format!")
+}
+
+func ParseTimeOnly(input string) (time.Time, error) {
+	for _, format := range timeFormats {
+		t, err := time.Parse(format, input)
+		if err != nil {
+			continue // Format mismatch. Try the next one.
+		}
+		return t, nil
+	}
+
+	return time.Time{}, errors.New("'" + input + "' does not match any time format!")
 }

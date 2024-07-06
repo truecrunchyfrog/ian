@@ -13,7 +13,11 @@ func parseIcalTime(input string) (time.Time, error) {
 }
 
 func getProp(icalEvent *ics.VEvent, prop ics.Property) string {
-	return icalEvent.GetProperty(ics.ComponentProperty(prop)).Value
+  ianaProp := icalEvent.GetProperty(ics.ComponentProperty(prop))
+  if ianaProp == nil {
+    return ""
+  }
+	return ianaProp.Value
 }
 
 func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {

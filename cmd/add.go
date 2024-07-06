@@ -9,26 +9,37 @@ import (
 )
 
 var calendar string
+
+var description string
+var location string
+var url string
 var duration string
+var hours []string
 
 func init() {
-  addCommand.Flags().StringVarP(&calendar, "calendar", "c", "", "Add the event to a specified calendar (e.g. 'share'), instead of the main calendar (''). Calendars are the directories inside the root. Calendars can be recursive, e.g.: 'share/family'.")
+	addCommand.Flags().StringVarP(&calendar, "calendar", "c", "", "Add the event to a specified calendar (e.g. 'share'), instead of the main calendar (''). Calendars are the directories inside the root. Calendars can be recursive, e.g.: 'share/family'.")
+
+	addCommand.Flags().StringVarP(&description, "description", "e", "", "A more detailed event description.")
+	addCommand.Flags().StringVarP(&location, "location", "l", "", "Where the event will take place (i.e. address).")
+	addCommand.Flags().StringVarP(&url, "url", "u", "", "A URL relevant to the event.")
 	addCommand.Flags().StringVarP(&duration, "duration", "d", "", "Duration of the event from start to end. Use instead of providing the 'end' argument. Example: --duration 1h30m to set 'end' to 'start' with 1 hour and 30 minutes added.")
+	addCommand.Flags().StringSliceVarP(&hours, "hours", "h", nil, "Time of the day(s). E.g.: '-h 09:00,17:00' to complement the start date with the time '09:00' and set the 'end' date to the same day but with the time '17:00', or '-h 22:00,05:00' to complement the start date with the time '22:00' and set the 'end' date to the day after with the time '05:00'. The second time parameter can be replaced with a duration, like in --duration.")
+	addCommand.MarkFlagsMutuallyExclusive("duration", "hours")
 
 	rootCmd.AddCommand(addCommand)
 }
 
 var addCommand = &cobra.Command{
-	Use:   "add <description> <start> [end]",
+	Use:   "add <summary> <start> [end]",
 	Short: "Create a new event",
-	Long:  "The arguments 'start' and 'end' support many different formats. The recommended format for most events is dd/mm, or dd/mm hh:mm with time. A time zone can be appended with +-hhmm or 'UTC'-like format.",
+	Long:  "The arguments 'start' and 'end' support many different formats. The recommended format for most events is dd/mm, or dd/mm hh:mm with time. A time zone can be appended with +-hhmm or 'UTC'-like format. If both 'end' and '--duration' are omitted, the end date is set to 24 hours after 'start'.",
 	Args:  cobra.RangeArgs(2, 3),
 	Run:   addCommandRun,
 }
 
 func addCommandRun(cmd *cobra.Command, args []string) {
-	if len(args) >= 3 && duration != "" {
-		log.Fatal("'end' and '--duration' ('-d') cannot be combined")
+	if len(args) >= 3 && (duration != "" || hours != nil) {
+		log.Fatal("'end' and '--duration' cannot be combined")
 	}
 
 	tz := GetTimeZone()
@@ -39,40 +50,96 @@ func addCommandRun(cmd *cobra.Command, args []string) {
 	}
 
 	var endDate time.Time
-	if len(args) >= 3 {
+	switch {
+	case len(args) >= 3:
 		var err error
 		endDate, err = ian.ParseDateTime(args[2], &tz)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else {
-		if duration != "" {
-			d, err := time.ParseDuration(duration)
-			if err != nil {
-				log.Fatal(err)
-			}
-			endDate = startDate.Add(d)
-		} else {
-			endDate = startDate.Add(24 * time.Hour)
+	case duration != "":
+		d, err := time.ParseDuration(duration)
+		if err != nil {
+			log.Fatal(err)
 		}
+		endDate = startDate.Add(d)
+	case hours != nil:
+    if len(hours) != 2 {
+      log.Fatal("--hours must have exactly two parameters, like: '--hours 09:00,17:00'.")
+    }
+    // Complement start date with the first time parameter.
+    startT, err := ian.ParseTimeOnly(hours[0])
+    if err != nil {
+      log.Fatal(err)
+    }
+    startDate = time.Date(
+      startDate.Year(),
+      startDate.Month(),
+      startDate.Day(),
+      startT.Hour(), // Replace time
+      startT.Minute(), //
+      startT.Second(), //
+      startT.Nanosecond(), //
+      startDate.Location(),
+    )
+
+    // Create end date.
+    endT, err := ian.ParseTimeOnly(hours[1])
+    if err == nil {
+      dayOffset := 0
+      if endT.Before(startT) {
+        // Time is less, so it's the day after.
+        dayOffset = 1
+      }
+      endDate = time.Date(
+        startDate.Year(),
+        startDate.Month(),
+        startDate.Day() + dayOffset,
+        endT.Hour(),
+        endT.Minute(),
+        endT.Second(),
+        endT.Nanosecond(),
+        startDate.Location(),
+      )
+    } else {
+      // Maybe it's a duration instead.
+      d, durErr := time.ParseDuration(hours[1])
+      if durErr != nil {
+        log.Fatalf("the second parameter in --hours: '%s', can neither be parsed as a time ('%s'), or duration ('%s').\n", hours[1], err, durErr)
+      }
+      if d < 0 {
+        log.Fatal("--hours duration cannot be negative")
+      }
+      // It's a duration!
+      endDate = startT.Add(d)
+    }
+	default:
+		endDate = startDate.Add(24 * time.Hour) // TODO do something about this. maybe change to 00:00 the day after?
 	}
+
+	now := time.Now()
 
 	props := ian.EventProperties{
-		Summary:  args[0],
-		Start: startDate,
-		End:   endDate,
+		Summary:     args[0],
+		Description: description,
+		Location:    location,
+		Url:         url,
+		Start:       startDate,
+		End:         endDate,
+		Created:     now,
+		Modified:    now,
 	}
 
-  if err := props.Verify(); err != nil {
-    log.Fatal("invalid event: ", err)
-  }
+	if err := props.Verify(); err != nil {
+		log.Fatal("invalid event: ", err)
+	}
 
-  instance, err := ian.CreateInstance(GetRoot())
-  if err != nil {
-    log.Fatal(err)
-  }
+	instance, err := ian.CreateInstance(GetRoot(), false)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  instance.CreateEvent(props, "")
+	instance.CreateEvent(props, calendar)
 
 	if err := instance; err != nil {
 		log.Fatal(err)

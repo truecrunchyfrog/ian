@@ -69,6 +69,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringP("root", "r", defaultRoot, "Set the calendar root.")
 	rootCmd.PersistentFlags().StringP("timezone", "t", "", "Override the automatic local timezone.")
+	rootCmd.PersistentFlags().BoolVarP(&ian.Verbose, "verbose", "v", false, "Enable verbose mode. More information is given.")
 	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
 }

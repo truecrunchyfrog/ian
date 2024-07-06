@@ -28,24 +28,22 @@ var listCommand = &cobra.Command{
 }
 
 func listCommandRun(cmd *cobra.Command, args []string) {
-  instance, err := ian.CreateInstance(GetRoot())
+  instance, err := ian.CreateInstance(GetRoot(), true)
   if err != nil {
     log.Fatal(err)
   }
-	if err := instance.ReadEvents(); err != nil {
-		log.Fatal(err)
-	}
 
 	now := time.Now()
+  events := slices.Clone(instance.Events)
 
 	if !showPast {
-		instance.Events = slices.DeleteFunc(instance.Events, func(event ian.Event) bool {
+		events = slices.DeleteFunc(events, func(event ian.Event) bool {
 			return event.Properties.End.Before(now)
 		})
 	}
 
 	if showNow {
-		instance.Events = append(instance.Events, ian.Event{
+		events = append(events, ian.Event{
 			Properties: ian.EventProperties{
 				Summary: "--- now ---",
 				Start:   now,
@@ -55,7 +53,7 @@ func listCommandRun(cmd *cobra.Command, args []string) {
 		})
 	}
 
-	slices.SortFunc(instance.Events, func(a ian.Event, b ian.Event) int {
+	slices.SortFunc(events, func(a ian.Event, b ian.Event) int {
 		switch {
 		case a.Properties.Start.Before(b.Properties.Start):
 			return -1
@@ -66,7 +64,7 @@ func listCommandRun(cmd *cobra.Command, args []string) {
 		}
 	})
 
-	for _, event := range instance.Events {
+	for _, event := range events {
 		fmt.Println(event.String())
 	}
 }
