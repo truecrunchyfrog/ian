@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	log.SetFlags(0)
+	log.SetFlags(log.Ltime)
 
 	Execute()
 }

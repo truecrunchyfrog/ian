@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -12,17 +13,16 @@ import (
 	"github.com/truecrunchyfrog/ian"
 )
 
-var (
-	cfgFile string
+var cfgFile string
 
-	rootCmd = &cobra.Command{
-		Use:   "ian",
-		Short: "ian is a file-based calendar and reminder system.",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("work in progress!")
-		},
-	}
-)
+var viewDate string
+var firstWeekday int
+
+var rootCmd = &cobra.Command{
+	Use:   "ian",
+	Short: "ian is a file-based calendar and reminder system.",
+	Run:   rootCmdRun,
+}
 
 func Execute() error {
 	return rootCmd.Execute()
@@ -30,7 +30,7 @@ func Execute() error {
 
 func GetRoot() string {
 	dir := viper.GetString("root")
-  ian.CreateDir(dir)
+	ian.CreateDir(dir)
 	return dir
 }
 
@@ -67,11 +67,15 @@ func init() {
 		fmt.Println("warning: home directory environment variable missing")
 	}
 
-	rootCmd.PersistentFlags().StringP("root", "r", defaultRoot, "Set the calendar root.")
-	rootCmd.PersistentFlags().StringP("timezone", "t", "", "Override the automatic local timezone.")
+	rootCmd.PersistentFlags().String("root", defaultRoot, "Set the calendar root.")
+	rootCmd.PersistentFlags().String("timezone", "", "Override the automatic local timezone.")
 	rootCmd.PersistentFlags().BoolVarP(&ian.Verbose, "verbose", "v", false, "Enable verbose mode. More information is given.")
 	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
+
+	rootCmd.Flags().StringVarP(&viewDate, "month", "m", "", "The month to view.")
+	rootCmd.Flags().IntVarP(&firstWeekday, "firstweekday", "w", 0, "The first day of the week, for display in the calendar.")
+	viper.BindPFlag("firstweekday", rootCmd.Flags().Lookup("firstweekday"))
 }
 
 func initConfig() {
@@ -89,4 +93,30 @@ func initConfig() {
 
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
+}
+
+func rootCmdRun(cmd *cobra.Command, args []string) {
+	if firstWeekday < 0 || firstWeekday > 6 {
+		log.Fatal("'firstweekday' out of bounds 0-6")
+	}
+
+	now := time.Now()
+
+	var t time.Time
+	if viewDate != "" {
+		var err error
+		if t, err = ian.ParseYearAndMonth(viewDate); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		t = now // Default to current date
+	}
+
+	fmt.Println(ian.DisplayCalendar(t, now, time.Weekday(firstWeekday), true, func(monthDay int, isToday bool) string {
+    r := fmt.Sprint(monthDay)
+    if isToday {
+      r = "\033[44m" + r
+    }
+    return r
+  }))
 }

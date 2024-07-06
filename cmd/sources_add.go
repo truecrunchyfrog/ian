@@ -12,20 +12,20 @@ import (
 var lifetime string
 
 func init() {
-	sourcesAddCommand.Flags().StringVar(&lifetime, "lifetime", "", "Set the duration (e.g. '1h30m') between updates of this source.")
+	sourcesAddCmd.Flags().StringVar(&lifetime, "lifetime", "", "Set the duration (e.g. '1h30m') between updates of this source.")
 
-	sourcesCommand.AddCommand(sourcesAddCommand)
+	sourcesCmd.AddCommand(sourcesAddCmd)
 }
 
-var sourcesAddCommand = &cobra.Command{
+var sourcesAddCmd = &cobra.Command{
 	Use:   "add <name> <type> <source>",
 	Short: "Configure a source. The configuration will be formatted.",
 	Long:  "If you have comments in your configuration, configure the source manually instead of using this command.",
 	Args:  cobra.ExactArgs(3),
-	Run:   sourcesAddCommandRun,
+	Run:   sourcesAddCmdRun,
 }
 
-func sourcesAddCommandRun(cmd *cobra.Command, args []string) {
+func sourcesAddCmdRun(cmd *cobra.Command, args []string) {
 	if lifetime != "" {
     if _, err := time.ParseDuration(lifetime); err != nil {
       log.Fatal(err)

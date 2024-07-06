@@ -189,7 +189,7 @@ func (event *Event) String() string {
 		event.Properties.Summary,
 		event.Properties.Start.Format(DefaultTimeLayout),
 		event.Properties.End.Format(DefaultTimeLayout),
-		event.Properties.End.Sub(event.Properties.Start),
+		DurationToString(event.Properties.End.Sub(event.Properties.Start)),
 	)
 }
 

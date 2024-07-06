@@ -14,22 +14,22 @@ var updateAll bool
 var updateSources []string
 
 func init() {
-	sourcesCommand.Flags().BoolVarP(&clean, "clean", "c", false, "Delete and update all sources.")
-	sourcesCommand.Flags().BoolVarP(&updateAll, "update-all", "U", false, "Update all lists.")
-	sourcesCommand.Flags().StringSliceVarP(&updateSources, "update", "u", []string{}, "Update a list of comma-separated source `names`. E.g.: 'ian sources --update school,home'.")
-	sourcesCommand.MarkFlagsMutuallyExclusive("clean", "update-all", "update")
+	sourcesCmd.Flags().BoolVarP(&clean, "clean", "c", false, "Delete and update all sources.")
+	sourcesCmd.Flags().BoolVarP(&updateAll, "update-all", "U", false, "Update all lists.")
+	sourcesCmd.Flags().StringSliceVarP(&updateSources, "update", "u", []string{}, "Update a list of comma-separated source `names`. E.g.: 'ian sources --update school,home'.")
+	sourcesCmd.MarkFlagsMutuallyExclusive("clean", "update-all", "update")
 
-	rootCmd.AddCommand(sourcesCommand)
+	rootCmd.AddCommand(sourcesCmd)
 }
 
-var sourcesCommand = &cobra.Command{
+var sourcesCmd = &cobra.Command{
 	Use:   "sources",
 	Short: "Manage and view sources",
 	Args:  cobra.NoArgs,
-	Run:   sourcesCommandRun,
+	Run:   sourcesCmdRun,
 }
 
-func sourcesCommandRun(cmd *cobra.Command, args []string) {
+func sourcesCmdRun(cmd *cobra.Command, args []string) {
 	instance, err := ian.CreateInstance(GetRoot(), false)
 	if err != nil {
 		log.Fatal(err)

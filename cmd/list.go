@@ -14,20 +14,20 @@ var showNow bool
 var showPast bool
 
 func init() {
-	listCommand.Flags().BoolVarP(&showNow, "now", "n", false, "Show an event to indicate today.")
-	listCommand.Flags().BoolVarP(&showPast, "past", "p", false, "Show past events.")
+	listCmd.Flags().BoolVarP(&showNow, "now", "n", false, "Show an event to indicate today.")
+	listCmd.Flags().BoolVarP(&showPast, "past", "p", false, "Show past events.")
 
-	rootCmd.AddCommand(listCommand)
+	rootCmd.AddCommand(listCmd)
 }
 
-var listCommand = &cobra.Command{
+var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List events",
 	Args:  cobra.NoArgs,
-	Run:   listCommandRun,
+	Run:   listCmdRun,
 }
 
-func listCommandRun(cmd *cobra.Command, args []string) {
+func listCmdRun(cmd *cobra.Command, args []string) {
   instance, err := ian.CreateInstance(GetRoot(), true)
   if err != nil {
     log.Fatal(err)
