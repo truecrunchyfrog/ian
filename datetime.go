@@ -98,21 +98,21 @@ var formats []string = []string{
 	"January 2 2006 15:04 MST",
 	"January 2 2006 3:04PM -0700",
 
-	"2006-01-02",
-	"2006-01-02 MST",
-	"2006-01-02 -0700",
-	"2006-01-02 15:04",
-	"2006-01-02 3:04PM",
-	"2006-01-02 15:04 MST",
-	"2006-01-02 3:04PM -0700",
+	"2006-1-2",
+	"2006-1-2 MST",
+	"2006-1-2 -0700",
+	"2006-1-2 15:04",
+	"2006-1-2 3:04PM",
+	"2006-1-2 15:04 MST",
+	"2006-1-2 3:04PM -0700",
 
-	"02-01-2006",
-	"02-01-2006 MST",
-	"02-01-2006 -0700",
-	"02-01-2006 15:04",
-	"02-01-2006 3:04PM",
-	"02-01-2006 15:04 MST",
-	"02-01-2006 3:04PM -0700",
+	"2-1-2006",
+	"2-1-2006 MST",
+	"2-1-2006 -0700",
+	"2-1-2006 15:04",
+	"2-1-2006 3:04PM",
+	"2-1-2006 15:04 MST",
+	"2-1-2006 3:04PM -0700",
 }
 
 var timeFormats []string = []string{
@@ -123,17 +123,17 @@ var timeFormats []string = []string{
 var monthFormats []string = []string{
 	"Jan",
 	"January",
-	"01",
+	"1",
 
-	"01/2006",
-	"01/06",
-	"01 2006",
-	"01 06",
-	"2006 01",
+	"1/2006",
+	"1/06",
+	"1 2006",
+	"1 06",
+	"2006 1",
 	"Jan 2006",
 	"January 2006",
-	"01-2006",
-	"2006-01",
+	"1-2006",
+	"2006-1",
 }
 
 // ParseDateTime parses a string against many different formats.
@@ -180,6 +180,18 @@ func ParseYearAndMonth(input string) (time.Time, error) {
 		t, err := time.Parse(format, input)
 		if err != nil {
 			continue // Format mismatch. Try the next one.
+		}
+		if t.Year() == 0 {
+			t = time.Date(
+				time.Now().Year(), // Update year if missing
+				t.Month(),
+				t.Day(),
+				t.Hour(),
+				t.Minute(),
+				t.Second(),
+				t.Nanosecond(),
+				t.Location(),
+			)
 		}
 		return t, nil
 	}

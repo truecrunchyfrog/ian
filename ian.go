@@ -130,6 +130,18 @@ func (instance *Instance) ReadEvents() error {
 	return nil
 }
 
+func (instance *Instance) FilterEvents(filter func(Event) bool) []Event {
+  events := []Event{}
+
+  for _, event := range instance.Events {
+    if filter(event) {
+      events = append(events, event)
+    }
+  }
+
+  return events
+}
+
 func CreateInstance(root string, performWork bool) (*Instance, error) {
 	config, err := ReadConfig(root)
 	if err != nil {

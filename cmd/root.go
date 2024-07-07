@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,7 +15,7 @@ import (
 var cfgFile string
 
 var viewDate string
-var firstWeekday int
+var emptyCalendar bool
 
 var rootCmd = &cobra.Command{
 	Use:   "ian",
@@ -74,8 +73,11 @@ func init() {
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
 
 	rootCmd.Flags().StringVarP(&viewDate, "month", "m", "", "The month to view.")
-	rootCmd.Flags().IntVarP(&firstWeekday, "firstweekday", "w", 0, "The first day of the week, for display in the calendar.")
-	viper.BindPFlag("firstweekday", rootCmd.Flags().Lookup("firstweekday"))
+	rootCmd.Flags().Bool("sunday", false, "Use sunday instead of monday as the first day of the week.")
+	rootCmd.Flags().BoolP("weeks", "w", false, "Show week numbers.")
+	rootCmd.Flags().BoolVarP(&emptyCalendar, "empty", "e", false, "Do not show any calendar events, just an empty calendar.")
+	viper.BindPFlag("sunday", rootCmd.Flags().Lookup("sunday"))
+	viper.BindPFlag("weeks", rootCmd.Flags().Lookup("weeks"))
 }
 
 func initConfig() {
@@ -96,8 +98,12 @@ func initConfig() {
 }
 
 func rootCmdRun(cmd *cobra.Command, args []string) {
-	if firstWeekday < 0 || firstWeekday > 6 {
-		log.Fatal("'firstweekday' out of bounds 0-6")
+	sunday := viper.GetBool("sunday")
+	showWeeks := viper.GetBool("weeks")
+
+	// Cannot rely on rootCmd.MarkFlagsMutuallyExclusive("sunday", "weeks") because it does not work with viper
+	if sunday && showWeeks {
+		log.Fatal("sundays and week numbers cannot be combined")
 	}
 
 	now := time.Now()
@@ -112,11 +118,32 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		t = now // Default to current date
 	}
 
-	fmt.Println(ian.DisplayCalendar(t, now, time.Weekday(firstWeekday), true, func(monthDay int, isToday bool) string {
-    r := fmt.Sprint(monthDay)
-    if isToday {
-      r = "\033[44m" + r
-    }
-    return r
-  }))
+	instance, err := ian.CreateInstance(GetRoot(), !emptyCalendar)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tz := GetTimeZone()
+	fmt.Println(ian.DisplayCalendar(t, now, sunday, showWeeks, func(monthDay int, isToday bool) string {
+		if isToday {
+			return "\033[44m"
+		}
+		if !emptyCalendar {
+			day := time.Date(t.Year(), t.Month(), monthDay, 0, 0, 0, 0, &tz)
+			dayAfter := time.Date(t.Year(), t.Month(), monthDay+1, 0, 0, 0, 0, &tz)
+			eventsStartingHere := instance.FilterEvents(func(e ian.Event) bool {
+				return !e.Properties.Start.Before(day) && e.Properties.Start.Before(dayAfter)
+			})
+			switch {
+			case len(eventsStartingHere) > 1:
+				return "\033[31m"
+			case len(eventsStartingHere) != 0:
+				return "\033[33m"
+			}
+		}
+		return ""
+	}))
+
+  if !emptyCalendar {
+  }
 }

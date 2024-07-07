@@ -6,45 +6,68 @@ import (
 	"time"
 )
 
-func DisplayCalendar(yearMonth, today time.Time, firstWeekday time.Weekday, showWeeks bool, format func(monthDay int, isToday bool) string) (output string) {
-	sundayDate := time.Unix(0, 0).AddDate(0, 0, -int(time.Thursday))
+func DisplayCalendar(yearMonth, today time.Time, sunday, showWeeks bool, format func(monthDay int, isToday bool) string) (output string) {
+	var weekdayOffset time.Weekday = 1
+	if sunday {
+		weekdayOffset = 0
+	}
 
 	header := yearMonth.Format("January 2006")
-	width := 4 * 7 // 4 chars per day, 7 days in a week
 
+	if showWeeks {
+		output += "    "
+	}
+
+	width := 4 * 7 // 4 chars per day, 7 days in a week
 	output += fmt.Sprintf("%[1]*s\n", -width, fmt.Sprintf("%[1]*s", (width+len(header))/2, header))
 
 	daysInMonth := 32 - time.Date(yearMonth.Year(), yearMonth.Month(), 32, 0, 0, 0, 0, time.UTC).Day()
 	firstWeekdayInMonth := time.Date(yearMonth.Year(), yearMonth.Month(), 1, 0, 0, 0, 0, time.UTC).Weekday()
 
+	if showWeeks {
+		output += strings.Repeat(" ", 3)
+	}
+
 	for i := 0; i < 7; i++ {
-		output += sundayDate.AddDate(0, 0, (int(firstWeekday)+i)%7).Format("Mon")
-		if i != 7-1 {
-			output += " "
-		}
+		output += fmt.Sprintf(" \033[2m%s\033[0m", time.Weekday((int(weekdayOffset) + i) % 7).String()[:3])
 	}
 	output += "\n"
 
-	diff := func(x, y time.Weekday) time.Weekday {
-		if x > y {
-			return x - y
-		}
-		return y - x
+	displayWeek := func(week int) string {
+    var format string
+    if _, currentWeek := today.ISOWeek(); currentWeek == week {
+      format = "\033[22;1;37m"
+    }
+		return fmt.Sprintf(" \033[2m"+format+"%2d\033[0m", week)
 	}
 
-	output += strings.Repeat(" ", 4*int(diff(firstWeekday, firstWeekdayInMonth)))
+	emptyDays := int(firstWeekdayInMonth - weekdayOffset)
+  if !sunday && firstWeekdayInMonth == 0 {
+    emptyDays = 6
+  }
+	if emptyDays > 0 {
+		if showWeeks {
+			_, week := time.Date(yearMonth.Year(), yearMonth.Month(), 1, 0, 0, 0, 0, time.UTC).ISOWeek()
+			output += displayWeek(week)
+		}
+		output += strings.Repeat(" ", 4*emptyDays)
+	}
 
 	for monthDay := 1; monthDay <= daysInMonth; monthDay++ {
-		weekday := time.Weekday((int(firstWeekdayInMonth) + monthDay) % 7)
-    isToday := yearMonth.Year() == today.Year() && yearMonth.Month() == today.Month() && monthDay == today.Day()
+		weekday := time.Weekday((int(firstWeekdayInMonth) + monthDay - 1) % 7)
 
-		displaySlot := format(monthDay, isToday)
-		output += fmt.Sprintf(displaySlot+"%3s\033[0m", displaySlot)
+		if showWeeks && weekday == weekdayOffset {
+			_, week := time.Date(yearMonth.Year(), yearMonth.Month(), monthDay, 0, 0, 0, 0, time.UTC).ISOWeek()
+			output += displayWeek(week)
+		}
 
-		if weekday == firstWeekday {
+		isToday := yearMonth.Year() == today.Year() && yearMonth.Month() == today.Month() && monthDay == today.Day()
+
+		format := format(monthDay, isToday)
+		output += fmt.Sprintf(" "+format+"%3s\033[0m", fmt.Sprint(monthDay))
+
+		if weekday == (weekdayOffset+6)%7 {
 			output += "\n"
-		} else {
-			output += " "
 		}
 	}
 
