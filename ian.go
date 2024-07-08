@@ -22,7 +22,7 @@ func SanitizePath(path string) string {
 
 type Instance struct {
 	Root   string
-	Config CalendarConfig
+	Config Config
 	Events []Event
 }
 
@@ -39,7 +39,7 @@ func (instance *Instance) Work() error {
 }
 
 func (instance *Instance) clearDir(name string) error {
-  return os.RemoveAll(filepath.Join(instance.Root, SanitizePath(name)))
+	return os.RemoveAll(filepath.Join(instance.Root, SanitizePath(name)))
 }
 
 // CreateEvent creates an event in the instance and returns it.
@@ -55,7 +55,7 @@ func (instance *Instance) CreateEvent(props EventProperties, containerDir string
 
 	(&Event{
 		Path:       path,
-		Properties: props,
+		Props: props,
 	}).Write(instance)
 
 	instance.ReadEvent(path)
@@ -71,7 +71,7 @@ func (instance *Instance) getAvailableFilepath(originalPath string) (string, err
 			return "", errors.New("cannot create file with that name: tried to add numerical suffix up to 10, but files by those names already exist.")
 		}
 
-		if _, err := os.Stat(filepath.Join(instance.Root, originalPath + pathSuffix)); err == nil {
+		if _, err := os.Stat(filepath.Join(instance.Root, originalPath+pathSuffix)); err == nil {
 			// File already exists
 			pathSuffix = "_" + fmt.Sprint(i)
 			continue
@@ -94,7 +94,7 @@ func (instance *Instance) ReadEvent(relPath string) error {
 
 	instance.Events = append(instance.Events, Event{
 		Path:       relPath,
-		Properties: props,
+		Props: props,
 		Constant:   isPathInCache(relPath),
 	})
 
@@ -131,15 +131,15 @@ func (instance *Instance) ReadEvents() error {
 }
 
 func (instance *Instance) FilterEvents(filter func(Event) bool) []Event {
-  events := []Event{}
+	events := []Event{}
 
-  for _, event := range instance.Events {
-    if filter(event) {
-      events = append(events, event)
-    }
-  }
+	for _, event := range instance.Events {
+		if filter(event) {
+			events = append(events, event)
+		}
+	}
 
-  return events
+	return events
 }
 
 func CreateInstance(root string, performWork bool) (*Instance, error) {
@@ -166,8 +166,8 @@ func CreateInstance(root string, performWork bool) (*Instance, error) {
 type Event struct {
 	// Path to event file relative to root.
 	// Use `filepath.Rel(root, filename)`.
-	Path       string
-	Properties EventProperties
+	Path       string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
+	Props EventProperties
 
 	// Constant is true if the event should not be changed.
 	// This is used for static imported calendars.
@@ -182,7 +182,7 @@ func (event *Event) GetRealPath(instance *Instance) string {
 // Creates any necessary directories.
 func (event *Event) Write(instance *Instance) error {
 	buf := new(bytes.Buffer)
-	if err := toml.NewEncoder(buf).Encode(event.Properties); err != nil {
+	if err := toml.NewEncoder(buf).Encode(event.Props); err != nil {
 		return err
 	}
 
@@ -198,10 +198,10 @@ func (event *Event) Write(instance *Instance) error {
 
 func (event *Event) String() string {
 	return fmt.Sprintf("%30s @ %s → %s (%s)",
-		event.Properties.Summary,
-		event.Properties.Start.Format(DefaultTimeLayout),
-		event.Properties.End.Format(DefaultTimeLayout),
-		DurationToString(event.Properties.End.Sub(event.Properties.Start)),
+		event.Props.Summary,
+		event.Props.Start.Format(DefaultTimeLayout),
+		event.Props.End.Format(DefaultTimeLayout),
+		DurationToString(event.Props.End.Sub(event.Props.Start)),
 	)
 }
 
@@ -211,8 +211,9 @@ type EventProperties struct {
 	Location    string
 	Url         string
 
-	Start time.Time
-	End   time.Time
+	Start  time.Time
+	End    time.Time
+	AllDay bool
 
 	Created  time.Time
 	Modified time.Time

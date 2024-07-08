@@ -38,13 +38,13 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 
 	if !showPast {
 		events = slices.DeleteFunc(events, func(event ian.Event) bool {
-			return event.Properties.End.Before(now)
+			return event.Props.End.Before(now)
 		})
 	}
 
 	if showNow {
 		events = append(events, ian.Event{
-			Properties: ian.EventProperties{
+			Props: ian.EventProperties{
 				Summary: "--- now ---",
 				Start:   now,
 				End:     now,
@@ -55,9 +55,9 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 
 	slices.SortFunc(events, func(a ian.Event, b ian.Event) int {
 		switch {
-		case a.Properties.Start.Before(b.Properties.Start):
+		case a.Props.Start.Before(b.Props.Start):
 			return -1
-		case a.Properties.Start.After(b.Properties.Start):
+		case a.Props.Start.After(b.Props.Start):
 			return 1
 		default:
 			return 0

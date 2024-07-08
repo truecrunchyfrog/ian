@@ -3,7 +3,7 @@ package ian
 import (
 	"time"
 
-	"github.com/arran4/golang-ical"
+	ics "github.com/arran4/golang-ical"
 )
 
 const icalTimeLayout string = "20060102T150405Z"
@@ -13,10 +13,10 @@ func parseIcalTime(input string) (time.Time, error) {
 }
 
 func getProp(icalEvent *ics.VEvent, prop ics.Property) string {
-  ianaProp := icalEvent.GetProperty(ics.ComponentProperty(prop))
-  if ianaProp == nil {
-    return ""
-  }
+	ianaProp := icalEvent.GetProperty(ics.ComponentProperty(prop))
+	if ianaProp == nil {
+		return ""
+	}
 	return ianaProp.Value
 }
 
@@ -32,6 +32,17 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		end, err := icalEvent.GetEndAt()
 		if err != nil {
 			return nil, err
+		}
+
+		var allDay bool
+		if start.Equal(end) {
+      allDay = true
+      var err error
+      if start, err = icalEvent.GetAllDayStartAt(); err != nil {
+        return nil, err
+      }
+
+      end = start.AddDate(0, 0, 1).Add(-time.Second)
 		}
 
 		summary := getProp(icalEvent, ics.PropertySummary)
@@ -52,6 +63,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 			Url:         url,
 			Start:       start,
 			End:         end,
+			AllDay:      allDay,
 			Created:     created,
 			Modified:    modified,
 		}

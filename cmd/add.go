@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -42,75 +43,79 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("'end' and '--duration' cannot be combined")
 	}
 
-	tz := GetTimeZone()
-
-	startDate, err := ian.ParseDateTime(args[1], &tz)
+	startDate, err := ian.ParseDateTime(args[1], GetTimeZone())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var endDate time.Time
+	var allDay bool
 	switch {
 	case len(args) >= 3:
 		var err error
-		endDate, err = ian.ParseDateTime(args[2], &tz)
+		endDate, err = ian.ParseDateTime(args[2], GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
 	case duration != 0:
 		endDate = startDate.Add(duration)
 	case hours != nil:
-    if len(hours) != 2 {
-      log.Fatal("--hours must have exactly two parameters, like: '--hours 09:00,17:00'.")
-    }
-    // Complement start date with the first time parameter.
-    startT, err := ian.ParseTimeOnly(hours[0])
-    if err != nil {
-      log.Fatal(err)
-    }
-    startDate = time.Date(
-      startDate.Year(),
-      startDate.Month(),
-      startDate.Day(),
-      startT.Hour(), // Replace time
-      startT.Minute(), //
-      startT.Second(), //
-      startT.Nanosecond(), //
-      startDate.Location(),
-    )
+		if len(hours) != 2 {
+			log.Fatal("--hours must have exactly two parameters, like: '--hours 09:00,17:00'.")
+		}
+		// Complement start date with the first time parameter.
+		startT, err := ian.ParseTimeOnly(hours[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+		startDate = time.Date(
+			startDate.Year(),
+			startDate.Month(),
+			startDate.Day(),
+			startT.Hour(),       // Replace time
+			startT.Minute(),     //
+			startT.Second(),     //
+			startT.Nanosecond(), //
+			startDate.Location(),
+		)
 
-    // Create end date.
-    endT, err := ian.ParseTimeOnly(hours[1])
-    if err == nil {
-      dayOffset := 0
-      if endT.Before(startT) {
-        // Time is less, so it's the day after.
-        dayOffset = 1
-      }
-      endDate = time.Date(
-        startDate.Year(),
-        startDate.Month(),
-        startDate.Day() + dayOffset,
-        endT.Hour(),
-        endT.Minute(),
-        endT.Second(),
-        endT.Nanosecond(),
-        startDate.Location(),
-      )
-    } else {
-      // Maybe it's a duration instead.
-      d, durErr := time.ParseDuration(hours[1])
-      if durErr != nil {
-        log.Fatalf("the second parameter in --hours: '%s', can neither be parsed as a time ('%s'), or duration ('%s').\n", hours[1], err, durErr)
-      }
-      if d < 0 {
-        log.Fatal("--hours duration cannot be negative")
-      }
-      // It's a duration!
-      endDate = startT.Add(d)
-    }
+		// Create end date.
+		endT, err := ian.ParseTimeOnly(hours[1])
+		if err == nil {
+			dayOffset := 0
+			if endT.Before(startT) {
+				// Time is less, so it's the day after.
+				dayOffset = 1
+			}
+			endDate = time.Date(
+				startDate.Year(),
+				startDate.Month(),
+				startDate.Day()+dayOffset,
+				endT.Hour(),
+				endT.Minute(),
+				endT.Second(),
+				endT.Nanosecond(),
+				startDate.Location(),
+			)
+		} else {
+			// Maybe it's a duration instead.
+			d, durErr := time.ParseDuration(hours[1])
+			if durErr != nil {
+				log.Fatalf("the second parameter in --hours: '%s', can neither be parsed as a time ('%s'), or duration ('%s').\n", hours[1], err, durErr)
+			}
+			if d < 0 {
+				log.Fatal("--hours duration cannot be negative")
+			}
+			// It's a duration!
+			endDate = startDate.Add(d)
+		}
 	default:
-		endDate = startDate.Add(24 * time.Hour) // TODO do something about this. maybe change to 00:00 the day after?
+		if h, m, s := startDate.Clock(); h+m+s == 0 {
+      endDate = startDate.AddDate(0, 0, 1).Add(-time.Second)
+      allDay = true
+		} else {
+      endDate = startDate.Add(time.Hour)
+    }
 	}
 
 	now := time.Now()
@@ -122,6 +127,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		Url:         url,
 		Start:       startDate,
 		End:         endDate,
+		AllDay:      allDay,
 		Created:     now,
 		Modified:    now,
 	}
@@ -130,10 +136,18 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("invalid event: ", err)
 	}
 
-	instance, err := ian.CreateInstance(GetRoot(), false)
+	instance, err := ian.CreateInstance(GetRoot(), true)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+  collidingEvents := instance.FilterEvents(func(e ian.Event) bool {
+    return ian.DoPeriodsMeet(startDate, endDate, e.Props.Start, e.Props.End)
+  })
+
+  for _, collidingEvent := range collidingEvents {
+    fmt.Printf("warning: this event collides with '%s'.\n", collidingEvent.Props.Summary)
+  }
 
 	if err := instance.CreateEvent(props, calendar); err != nil {
 		log.Fatal(err)
@@ -141,7 +155,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 
 	eventDuration := endDate.Sub(startDate)
 
-	log.Printf("%s\n\n%s (%s)\n%s\n",
+	fmt.Printf("%s\n\n%s (%s)\n%s\n",
 		props.Summary,
 		props.Start.Format(ian.DefaultTimeLayout),
 		ian.DurationToString(eventDuration),

@@ -150,7 +150,7 @@ func (instance *Instance) UpdateSources() error {
 	// Unsatisfied source (sources missing from journal) are updated and added to the journal.
 
 	if len(unsatisfiedSources) != 0 {
-		log.Printf("%d new sources are being registered\n", len(unsatisfiedSources))
+		log.Printf("adding %d source(s) to journal\n", len(unsatisfiedSources))
 	}
 
 	for name, source := range unsatisfiedSources {

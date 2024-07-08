@@ -120,22 +120,6 @@ var timeFormats []string = []string{
 	"3:04PM",
 }
 
-var monthFormats []string = []string{
-	"Jan",
-	"January",
-	"1",
-
-	"1/2006",
-	"1/06",
-	"1 2006",
-	"1 06",
-	"2006 1",
-	"Jan 2006",
-	"January 2006",
-	"1-2006",
-	"2006-1",
-}
-
 // ParseDateTime parses a string against many different formats.
 // If timezone is omitted, the local is assumed (from global variable `UseTimezone`).
 // If year is omitted, the current one is used.
@@ -146,16 +130,7 @@ func ParseDateTime(input string, timeZone *time.Location) (time.Time, error) {
 			continue // Format mismatch. Try the next one.
 		}
 		if t.Year() == 0 {
-			t = time.Date(
-				time.Now().Year(), // Update year if missing
-				t.Month(),
-				t.Day(),
-				t.Hour(),
-				t.Minute(),
-				t.Second(),
-				t.Nanosecond(),
-				t.Location(),
-			)
+			t = t.AddDate(time.Now().In(timeZone).Year(), 0, 0) // Default year
 		}
 		return t, nil
 	}
@@ -173,30 +148,6 @@ func ParseTimeOnly(input string) (time.Time, error) {
 	}
 
 	return time.Time{}, errors.New("'" + input + "' does not match any time format!")
-}
-
-func ParseYearAndMonth(input string) (time.Time, error) {
-	for _, format := range monthFormats {
-		t, err := time.Parse(format, input)
-		if err != nil {
-			continue // Format mismatch. Try the next one.
-		}
-		if t.Year() == 0 {
-			t = time.Date(
-				time.Now().Year(), // Update year if missing
-				t.Month(),
-				t.Day(),
-				t.Hour(),
-				t.Minute(),
-				t.Second(),
-				t.Nanosecond(),
-				t.Location(),
-			)
-		}
-		return t, nil
-	}
-
-	return time.Time{}, errors.New("'" + input + "' does not match any month/year format!")
 }
 
 // DurationToString because time's implementation is ugly.
@@ -231,4 +182,29 @@ func DurationToString(d time.Duration) string {
 	}
 
 	return output + strings.Join(parts, " ")
+}
+
+// TODO consider changing this whole -1 second from end thing to just not include the edge case,
+// or will that complicate this further??
+
+func IsTimeWithinPeriod(t, periodStart, periodEnd time.Time) bool {
+  if periodStart.After(periodEnd) {
+    panic("periodStart is after periodEnd")
+  }
+  //        not before start                not after end
+	return t.Compare(periodStart) != -1 && t.Compare(periodEnd) != 1
+}
+
+// IsPeriodConfinedToPeriod returns true if the period start1-end1 is within start2-end2.
+func IsPeriodConfinedToPeriod(start1, end1, start2, end2 time.Time) bool {
+  return IsTimeWithinPeriod(start1, start2, end2) && IsTimeWithinPeriod(end1, start2, end2)
+}
+
+// DoPeriodsMeet compares two periods and returns true if they collide at some point, otherwise false.
+// start1 must not come after end1, and start2 must not come after end2.
+func DoPeriodsMeet(start1, end1, start2, end2 time.Time) bool {
+	return IsTimeWithinPeriod(start1, start2, end2) ||
+		IsTimeWithinPeriod(end1, start2, end2) ||
+		IsTimeWithinPeriod(start2, start1, end1) ||
+		IsTimeWithinPeriod(end2, start1, end1)
 }
