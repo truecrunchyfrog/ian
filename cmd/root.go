@@ -84,9 +84,22 @@ func init() {
 
 	rootCmd.Flags().Bool("sunday", false, "Use sunday instead of monday as the first day of the week.")
 	rootCmd.Flags().BoolP("weeks", "w", false, "Show week numbers.")
-	rootCmd.Flags().BoolVarP(&emptyCalendar, "empty", "e", false, "Do not show any calendar events, just an empty calendar.")
+	rootCmd.Flags().BoolVarP(&emptyCalendar, "empty", "e", false, "Just an empty calendar.")
+	rootCmd.Flags().Bool("no-timeline", false, "Do not show the timeline.")
+	rootCmd.Flags().Bool("no-event-coloring", false, "Do not color the calendar days based on events occuring then.")
+	rootCmd.Flags().Bool("no-day-hinting", false, "Do not color the current day.")
+	rootCmd.Flags().Bool("no-week-hinting", false, "Do not show a brighter color on the current week and weekday.")
+	rootCmd.Flags().Bool("no-borders", false, "Do not show week/weekday borders.")
+	rootCmd.Flags().Uint("daywidth", 3, "Width per calendar day in character length.")
+	rootCmd.Flags().BoolP("past", "p", false, "Include past events in the timeline.")
 	viper.BindPFlag("sunday", rootCmd.Flags().Lookup("sunday"))
 	viper.BindPFlag("weeks", rootCmd.Flags().Lookup("weeks"))
+	viper.BindPFlag("no-timeline", rootCmd.Flags().Lookup("no-timeline"))
+	viper.BindPFlag("no-event-coloring", rootCmd.Flags().Lookup("no-event-coloring"))
+	viper.BindPFlag("no-week-hinting", rootCmd.Flags().Lookup("no-week-hinting"))
+	viper.BindPFlag("no-borders", rootCmd.Flags().Lookup("no-borders"))
+	viper.BindPFlag("daywidth", rootCmd.Flags().Lookup("daywidth"))
+	viper.BindPFlag("past", rootCmd.Flags().Lookup("past"))
 }
 
 func initConfig() {
@@ -109,10 +122,15 @@ func initConfig() {
 func rootCmdRun(cmd *cobra.Command, args []string) {
 	sunday := viper.GetBool("sunday")
 	showWeeks := viper.GetBool("weeks")
+	widthPerDay := viper.GetUint("daywidth")
 
 	// Cannot rely on rootCmd.MarkFlagsMutuallyExclusive("sunday", "weeks") because it does not work with viper
 	if sunday && showWeeks {
 		log.Fatal("sundays and week numbers cannot be combined")
+	}
+
+	if widthPerDay < 2 || widthPerDay > 100 {
+		log.Fatal("invalid daywidth size (must be within the bounds of 2-100)")
 	}
 
 	now := time.Now().In(GetTimeZone())
@@ -139,35 +157,51 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println(ian.DisplayCalendar(GetTimeZone(), year, time.Month(month), now, sunday, showWeeks, func(monthDay int, isToday bool) string {
-		if isToday {
-			return "\033[44m"
-		}
-		if !emptyCalendar {
-			dayStart := time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
-			dayEnd := dayStart.AddDate(0, 0, 1).Add(-time.Second)
-			eventsInDay := instance.FilterEvents(func(e ian.Event) bool {
-				return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, dayStart, dayEnd)
-			})
-			switch {
-			case len(eventsInDay) > 1:
-				return "\033[31m"
-			case len(eventsInDay) != 0:
-				return "\033[33m"
+	fmt.Println(ian.DisplayCalendar(
+		GetTimeZone(),
+		year,
+		time.Month(month),
+		now,
+		sunday,
+		showWeeks,
+		!viper.GetBool("no-week-hinting"),
+		!viper.GetBool("no-borders"),
+		int(widthPerDay),
+		func(monthDay int, isToday bool) (string, bool) {
+			if isToday {
+				return "\033[44m", true
 			}
-		}
-		return ""
-	}))
+			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
+				dayStart := time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
+				dayEnd := dayStart.AddDate(0, 0, 1).Add(-time.Second)
+				eventsInDay := instance.FilterEvents(func(e ian.Event) bool {
+					return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, dayStart, dayEnd)
+				})
+				switch {
+				case len(eventsInDay) == 1:
+					return ian.GetEventRgbAnsiSeq(&eventsInDay[0], instance, false), false
+				case len(eventsInDay) > 1:
+					return "\033[4m", false
+				default:
+					return "\033[2m", false
+				}
+			}
+			return "", false
+		}))
 
-	// TODO move event list into display.go
-	if !emptyCalendar {
-		monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
+	if !emptyCalendar && !viper.GetBool("no-timeline") {
+    var monthStart time.Time
+		if viper.GetBool("past") {
+			monthStart = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
+		} else {
+      monthStart = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
+    }
 		monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Second)
 
 		events := instance.FilterEvents(func(e ian.Event) bool {
 			return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, monthStart, monthEnd)
 		})
 
-    fmt.Println(ian.DisplayTimeline(instance, monthStart, monthEnd, events, GetTimeZone()))
+		fmt.Println(ian.DisplayTimeline(instance, monthStart, monthEnd, events, GetTimeZone()))
 	}
 }

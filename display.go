@@ -9,7 +9,18 @@ import (
 	"time"
 )
 
-func DisplayCalendar(location *time.Location, year int, month time.Month, today time.Time, sunday, showWeeks bool, format func(monthDay int, isToday bool) string) (output string) {
+func DisplayCalendar(
+	location *time.Location,
+	year int,
+	month time.Month,
+	today time.Time,
+	sunday,
+	showWeeks,
+	weekHinting bool,
+	borders bool,
+	widthPerDay int,
+	format func(monthDay int, isToday bool) (string, bool),
+) (output string) {
 	var weekdayOffset time.Weekday = 1
 	if sunday {
 		weekdayOffset = 0
@@ -21,7 +32,7 @@ func DisplayCalendar(location *time.Location, year int, month time.Month, today 
 		output += "    "
 	}
 
-	width := 4 * 7 // 4 chars per day, 7 days in a week
+	width := (widthPerDay + 1) * 7 // 4 chars per day, 7 days in a week
 	output += fmt.Sprintf("%[1]*s\n", -width, fmt.Sprintf("%[1]*s", (width+len(header))/2, header))
 
 	daysInMonth := 32 - time.Date(year, month, 32, 0, 0, 0, 0, location).Day()
@@ -31,17 +42,34 @@ func DisplayCalendar(location *time.Location, year int, month time.Month, today 
 		output += strings.Repeat(" ", 3)
 	}
 
-	for i := 0; i < 7; i++ {
-		output += fmt.Sprintf(" \033[2m%s\033[0m", time.Weekday((int(weekdayOffset) + i) % 7).String()[:3])
+	weekdayFormat := "\033[2m"
+	if borders {
+		weekdayFormat += "\033[4m"
 	}
-	output += "\n"
+	output += weekdayFormat
+	for i := 0; i < 7; i++ {
+		weekday := time.Weekday((int(weekdayOffset) + i) % 7)
+		dayString := weekday.String()
+		if len(dayString) > widthPerDay {
+			dayString = dayString[:widthPerDay]
+		}
+		if weekHinting && weekday == today.Weekday() {
+			dayString = "\033[22m" + dayString + weekdayFormat
+		}
+		output += fmt.Sprintf(" %"+fmt.Sprint(widthPerDay)+"s", dayString)
+	}
+	output += "\033[0m\n"
 
 	displayWeek := func(week int) string {
 		var format string
-		if _, currentWeek := today.ISOWeek(); currentWeek == week {
+		if _, currentWeek := today.ISOWeek(); weekHinting && currentWeek == week {
 			format = "\033[22;1;37m"
 		}
-		return fmt.Sprintf(" \033[2m"+format+"%2d\033[0m", week)
+		var border string
+		if borders {
+			border = "│"
+		}
+		return fmt.Sprintf("\033[2m"+format+"%2d"+border+"\033[0m", week)
 	}
 
 	emptyDays := int(firstWeekdayInMonth - weekdayOffset)
@@ -53,7 +81,7 @@ func DisplayCalendar(location *time.Location, year int, month time.Month, today 
 			_, week := time.Date(year, month, 1, 0, 0, 0, 0, location).ISOWeek()
 			output += displayWeek(week)
 		}
-		output += strings.Repeat(" ", 4*emptyDays)
+		output += strings.Repeat(" ", (widthPerDay+1)*emptyDays)
 	}
 
 	for monthDay := 1; monthDay <= daysInMonth; monthDay++ {
@@ -66,8 +94,14 @@ func DisplayCalendar(location *time.Location, year int, month time.Month, today 
 
 		isToday := year == today.Year() && month == today.Month() && monthDay == today.Day()
 
-		format := format(monthDay, isToday)
-		output += fmt.Sprintf(" "+format+"%3s\033[0m", fmt.Sprint(monthDay))
+		format, entireSlot := format(monthDay, isToday)
+		padding := strings.Repeat(" ", widthPerDay-2)
+		if widthPerDay > 2 && entireSlot {
+			format += padding
+		} else {
+			format = padding + format
+		}
+		output += fmt.Sprintf(" "+format+"%s\033[0m", fmt.Sprintf("%2d", monthDay))
 
 		if weekday == (weekdayOffset+6)%7 {
 			output += "\n"
@@ -105,15 +139,24 @@ type eventEntry struct {
 }
 
 // possibleEntryDate returns a formatted date if it has not yet been shown (based on lastShownDate).
-func possibleEntryDate(now time.Time, lastShownDate *time.Time) string {
+func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 	output := ""
 
-	if now.YearDay() != lastShownDate.YearDay() || now.Year() != lastShownDate.Year() {
-		output += now.Format("_2 Jan")
-		*lastShownDate = now
+	if current.YearDay() != lastShownDate.YearDay() || current.Year() != lastShownDate.Year() {
+		output += current.Format("_2 Jan")
+		*lastShownDate = current
 	}
 
-	return fmt.Sprintf("\033[2m%-8s\033[22m", output)
+	now := time.Now().In(current.Location())
+	var format string
+	switch {
+	case current.YearDay() < now.YearDay() && current.Year() <= now.Year():
+		format += "\033[3m"
+		fallthrough
+	case current.YearDay() != now.YearDay() || current.Year() != now.Year():
+		format += "\033[2m"
+	}
+	return fmt.Sprintf(format+"%-6s\033[0m ", output)
 }
 
 // TODO add parallel support
@@ -129,41 +172,66 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 		end := entry.event.Props.End.In(location)
 		if !entry.event.Props.AllDay {
 			startFmt = start.Format("15")
-			if start.Minute() == 0 {
+			/*if start.Minute() == 0 {
 				//startFmt += "\033[2m"
-			}
+			}*/ // TODO decide on what to do here
 			if start.Minute() != 0 {
 				startFmt += start.Format(":04") + "\033[22m"
 			}
 
 			endFmt = end.Format("15")
-			if end.Minute() == 0 {
+			/*if end.Minute() == 0 {
 				//endFmt += "\033[2m"
-			}
+			}*/
 			if end.Minute() != 0 {
 				endFmt += end.Format(":04") + "\033[22m"
 			}
 
-			if len(entry.children) != 0 {
+			if len(entry.children) != 0 || start.Day() != end.Day() {
 				period = startFmt
 			} else {
-				//onlyToday := start.Day() == end.Day()
 				period = startFmt + " 🡲  " + endFmt
 			}
 		} else {
 			period = "*"
 		}
 
-    // TODO wrap text
-		output += possibleEntryDate(start, lastShownDate) + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m " + entry.event.Props.Summary + "\033[0m"
+		entryDate := possibleEntryDate(start, lastShownDate)
+
+		firstLinePrefix := entryDate + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m "
+		var innerPipes string
+		if len(entry.children) == 0 {
+			innerPipes = displayPipes(instance, entry) + "  "
+		} else {
+      innerPipes = displayPipes(instance, entry.children[0])
+    }
+		otherLinesPrefix := innerPipes + GetEventRgbAnsiSeq(entry.event, instance, false)
+
+		words := strings.Split(entry.event.Props.Summary, " ")
+		lines := []string{""}
+    maxLength := 30 - max(len(otherLinesPrefix))
+    for _, word := range words {
+      lastLine := &lines[len(lines)-1]
+      if len(*lastLine) + len(word) < maxLength {
+        if len(*lastLine) != 0 {
+          *lastLine += " "
+        }
+        *lastLine += word
+      } else {
+        lines = append(lines, word)
+      }
+    }
+
+		wrappedText := strings.Join(lines, "\n"+possibleEntryDate(start, lastShownDate)+otherLinesPrefix+strings.Repeat(" ", len(period)-1))
+		output += firstLinePrefix + wrappedText + "\033[0m"
 	}
 	for _, child := range entry.children {
 		// Children
 		output += "\n" + displayEntry(instance, child, lastShownDate, location)
 	}
-	if entry.event != nil && len(entry.children) != 0 {
+	if entry.event != nil && (len(entry.children) != 0 || entry.event.Props.Start.In(location).Day() != entry.event.Props.End.In(location).Day()) {
 		// Tail
-		output += "\n" + possibleEntryDate(entry.event.Props.End.In(location), lastShownDate) + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + "\033[22m " + entry.event.Props.Summary + "\033[0m"
+		output += "\n" + possibleEntryDate(entry.event.Props.End.In(location), lastShownDate) + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + " \033[22;2;9m" + entry.event.Props.Summary + "\033[0m"
 	}
 	return output
 }
@@ -233,24 +301,4 @@ func DisplayTimeline(instance *Instance, periodStart, periodEnd time.Time, event
 
 	lastShownDate := time.Time{}
 	return displayEntry(instance, &rootEntry, &lastShownDate, location)
-
-	//cursor := periodStart
-	//ongoingEvents := []Event{}
-
-	/*for _, event := range events {
-	  start := event.Props.Start.In(location)
-	  end := event.Props.End.In(location)
-	  for _, ongoingEvent := range ongoingEvents {
-	    if ongoingEvent.Props.End.Before()
-	  }
-	  if start.Year() == end.Year() && start.YearDay() == end.YearDay() {
-	    // Event is during a single day.
-	    if event.Props.AllDay {
-	      // It's an all-day event. Display no time.
-	      output += ""
-	    } else {
-	      // It's during a part of a single day. Display the time.
-	    }
-	  }
-	}*/
 }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -91,6 +92,14 @@ func (instance *Instance) ReadEvent(relPath string) error {
 		log.Println("warning: '"+path+"' was ignored:", err)
 		return nil
 	}
+
+  // Delete old version if it exists:
+  i := slices.IndexFunc(instance.Events, func(event Event) bool {
+    return event.Path == relPath
+  })
+  if i != -1 {
+    instance.Events = slices.Delete(instance.Events, i, i+1)
+  }
 
 	instance.Events = append(instance.Events, Event{
 		Path:       relPath,
