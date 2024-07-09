@@ -55,7 +55,7 @@ func (instance *Instance) CreateEvent(props EventProperties, containerDir string
 	}
 
 	(&Event{
-		Path:       path,
+		Path:  path,
 		Props: props,
 	}).Write(instance)
 
@@ -89,22 +89,27 @@ func (instance *Instance) ReadEvent(relPath string) error {
 
 	props, err := parseEventFile(path)
 	if err != nil {
-		log.Println("warning: '"+path+"' was ignored:", err)
+		log.Println("warning: parsing '"+path+"' failed and the event was ignored:", err)
 		return nil
 	}
 
-  // Delete old version if it exists:
-  i := slices.IndexFunc(instance.Events, func(event Event) bool {
-    return event.Path == relPath
-  })
-  if i != -1 {
-    instance.Events = slices.Delete(instance.Events, i, i+1)
+  if err := props.Verify(); err != nil {
+		log.Println("warning: '"+path+"' failed verification and the event was ignored:", err)
+		return nil
   }
 
+	// Delete old version if it exists:
+	i := slices.IndexFunc(instance.Events, func(event Event) bool {
+		return event.Path == relPath
+	})
+	if i != -1 {
+		instance.Events = slices.Delete(instance.Events, i, i+1)
+	}
+
 	instance.Events = append(instance.Events, Event{
-		Path:       relPath,
-		Props: props,
-		Constant:   isPathInCache(relPath),
+		Path:     relPath,
+		Props:    props,
+		Constant: isPathInCache(relPath),
 	})
 
 	return nil
@@ -123,7 +128,7 @@ func (instance *Instance) ReadEvents() error {
 
 		relPath, err := filepath.Rel(instance.Root, path)
 		if err != nil {
-			log.Println("warning: '"+path+"' was ignored:", err)
+			log.Println("warning: path for '"+path+"' failed and the event was ignored:", err)
 			return nil
 		}
 
@@ -175,7 +180,7 @@ func CreateInstance(root string, performWork bool) (*Instance, error) {
 type Event struct {
 	// Path to event file relative to root.
 	// Use `filepath.Rel(root, filename)`.
-	Path       string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
+	Path  string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
 	Props EventProperties
 
 	// Constant is true if the event should not be changed.
@@ -236,6 +241,14 @@ func (p *EventProperties) Verify() error {
 		return errors.New("start cannot be chronologically after end")
 	case p.Created.After(p.Modified):
 		return errors.New("created cannot be chronologically after modified")
+	case p.AllDay:
+		if !p.Start.Equal(time.Date(p.Start.Year(), p.Start.Month(), p.Start.Day(), 0, 0, 0, 0, p.Start.Location())) {
+      return errors.New("all-day event start must be at midnight")
+		}
+		if !p.Start.AddDate(0, 0, 1).Add(-time.Second).Equal(p.End) {
+      return errors.New("all-day event end must be exactly 24 hours minus 1 second after start")
+		}
+		fallthrough
 	default:
 		return nil
 	}
@@ -243,7 +256,7 @@ func (p *EventProperties) Verify() error {
 
 func (props *EventProperties) FormatName() string {
 	name := props.Summary
-	name = strings.ToLower(name)
+	//name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, "/", "-")
 	name = strings.ReplaceAll(name, `\`, "-")
 	//name = strings.ReplaceAll(name, " ", "-")

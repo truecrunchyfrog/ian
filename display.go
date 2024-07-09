@@ -140,10 +140,13 @@ type eventEntry struct {
 
 // possibleEntryDate returns a formatted date if it has not yet been shown (based on lastShownDate).
 func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
-	output := ""
+  var date, year string
 
 	if current.YearDay() != lastShownDate.YearDay() || current.Year() != lastShownDate.Year() {
-		output += current.Format("_2 Jan")
+    if !lastShownDate.IsZero() && current.Year() != lastShownDate.Year() {
+      year = fmt.Sprintf("\n\033[4m%s\033[24m\n", current.Format("2006"))
+    }
+		date += current.Format("_2 Jan")
 		*lastShownDate = current
 	}
 
@@ -156,7 +159,7 @@ func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 	case current.YearDay() != now.YearDay() || current.Year() != now.Year():
 		format += "\033[2m"
 	}
-	return fmt.Sprintf(format+"%-6s\033[0m ", output)
+	return fmt.Sprintf("%s"+format+"%-6s\033[0m ", year, date)
 }
 
 // TODO add parallel support
@@ -196,34 +199,7 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 			period = "*"
 		}
 
-		entryDate := possibleEntryDate(start, lastShownDate)
-
-		firstLinePrefix := entryDate + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m "
-		var innerPipes string
-		if len(entry.children) == 0 {
-			innerPipes = displayPipes(instance, entry) + "  "
-		} else {
-      innerPipes = displayPipes(instance, entry.children[0])
-    }
-		otherLinesPrefix := innerPipes + GetEventRgbAnsiSeq(entry.event, instance, false)
-
-		words := strings.Split(entry.event.Props.Summary, " ")
-		lines := []string{""}
-    maxLength := 30 - max(len(otherLinesPrefix))
-    for _, word := range words {
-      lastLine := &lines[len(lines)-1]
-      if len(*lastLine) + len(word) < maxLength {
-        if len(*lastLine) != 0 {
-          *lastLine += " "
-        }
-        *lastLine += word
-      } else {
-        lines = append(lines, word)
-      }
-    }
-
-		wrappedText := strings.Join(lines, "\n"+possibleEntryDate(start, lastShownDate)+otherLinesPrefix+strings.Repeat(" ", len(period)-1))
-		output += firstLinePrefix + wrappedText + "\033[0m"
+		output += possibleEntryDate(start, lastShownDate) + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m " + entry.event.Props.Summary + "\033[0m"
 	}
 	for _, child := range entry.children {
 		// Children
