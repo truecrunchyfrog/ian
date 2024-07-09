@@ -141,15 +141,10 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  collidingEvents := instance.FilterEvents(func(e ian.Event) bool {
-    return ian.DoPeriodsMeet(startDate, endDate, e.Props.Start, e.Props.End)
-  })
+  checkCollision(instance, props)
 
-  for _, collidingEvent := range collidingEvents {
-    fmt.Printf("warning: this event collides with '%s'.\n", collidingEvent.Props.Summary)
-  }
-
-	if err := instance.CreateEvent(props, calendar); err != nil {
+  event, err := instance.CreateEvent(props, calendar)
+  if err != nil {
 		log.Fatal(err)
 	}
 
@@ -161,4 +156,10 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		ian.DurationToString(eventDuration),
 		props.End.Format(ian.DefaultTimeLayout),
 	)
+
+  instance.Sync(ian.SyncEvent{
+    Type: ian.SyncEventCreate,
+    Files: event.GetRealPath(instance),
+    Message: fmt.Sprintf("ian: create event '%s'", event.Path),
+  })
 }

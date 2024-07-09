@@ -55,7 +55,7 @@ func ReadConfig(root string) (Config, error) {
 	name := getConfigPath(root)
 
 	buf, err := os.ReadFile(name)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return Config{}, err
 	}
 

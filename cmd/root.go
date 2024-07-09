@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 )
 
 var cfgFile string
+var noCollision bool
+var collisionExceptions []string
 
 var emptyCalendar bool
 
@@ -64,6 +67,20 @@ func GetTimeZone() *time.Location {
 	return TimeZone
 }
 
+func checkCollision(instance *ian.Instance, props ian.EventProperties) {
+  collidingEvents := instance.FilterEvents(func(e ian.Event) bool {
+    return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.Start, props.End, e.Props.Start, e.Props.End)
+  })
+
+  for _, collidingEvent := range collidingEvents {
+    fmt.Printf("warning: this event collides with '%s'.\n", collidingEvent.Props.Summary)
+  }
+
+  if len(collidingEvents) != 0 && noCollision {
+    log.Fatal("COLLISION! cannot set event in that period, because it collides with other events.\nif you want to set it anyway, either disable the 'no-collision' preference/flag or add a '--no-collision=false' flag to temporarily override it.")
+  }
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -79,8 +96,12 @@ func init() {
 	rootCmd.PersistentFlags().String("root", defaultRoot, "Set the calendar root.")
 	rootCmd.PersistentFlags().String("timezone", "", "Set the timezone to work with. Overrides the local timezone.")
 	rootCmd.PersistentFlags().BoolVarP(&ian.Verbose, "verbose", "v", false, "Enable verbose mode. More information is given.")
+	rootCmd.PersistentFlags().BoolVar(&noCollision, "no-collision", false, "Prevent events from being created or edited to collide with another event.")
+	rootCmd.PersistentFlags().StringSliceVar(&collisionExceptions, "collision-exceptions", []string{}, "Mark a list of `calendars` as exceptions for collisions. When a calendar is listed, collision warnings will not be shown, and when combined with 'no-collision' a collision for an event within a calendar specified here will pass.")
 	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
+	viper.BindPFlag("no-collision", rootCmd.PersistentFlags().Lookup("no-collision"))
+	viper.BindPFlag("collision-exceptions", rootCmd.PersistentFlags().Lookup("collision-exceptions"))
 
 	rootCmd.Flags().Bool("sunday", false, "Use sunday instead of monday as the first day of the week.")
 	rootCmd.Flags().BoolP("weeks", "w", false, "Show week numbers.")

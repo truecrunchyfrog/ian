@@ -103,7 +103,7 @@ func DisplayCalendar(
 		}
 		output += fmt.Sprintf(" "+format+"%s\033[0m", fmt.Sprintf("%2d", monthDay))
 
-		if weekday == (weekdayOffset+6)%7 {
+		if weekday == (weekdayOffset+6)%7 && monthDay != daysInMonth {
 			output += "\n"
 		}
 	}
@@ -175,19 +175,13 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 		end := entry.event.Props.End.In(location)
 		if !entry.event.Props.AllDay {
 			startFmt = start.Format("15")
-			/*if start.Minute() == 0 {
-				//startFmt += "\033[2m"
-			}*/ // TODO decide on what to do here
 			if start.Minute() != 0 {
-				startFmt += start.Format(":04") + "\033[22m"
+				startFmt += start.Format(":04")
 			}
 
 			endFmt = end.Format("15")
-			/*if end.Minute() == 0 {
-				//endFmt += "\033[2m"
-			}*/
 			if end.Minute() != 0 {
-				endFmt += end.Format(":04") + "\033[22m"
+				endFmt += end.Format(":04")
 			}
 
 			if len(entry.children) != 0 || start.Day() != end.Day() {

@@ -200,7 +200,8 @@ func (instance *Instance) getCacheDir() string {
 }
 
 func (instance *Instance) CacheEvent(name string, props EventProperties) error {
-	return instance.CreateEvent(props, filepath.Join(CacheDirName, SanitizePath(name)))
+  _, err := instance.CreateEvent(props, filepath.Join(CacheDirName, SanitizePath(name)))
+  return err
 }
 
 // CacheEvents collectively caches a list of events under a certain directory.

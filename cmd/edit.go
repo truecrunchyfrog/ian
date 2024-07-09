@@ -94,6 +94,14 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	if err := event.Props.Verify(); err != nil {
 		log.Fatalf("verification failed: %s", err)
 	}
+  checkCollision(instance, event.Props)
+
 	event.Write(instance)
 	fmt.Printf("'%s' has been updated\n", event.Path)
+
+  instance.Sync(ian.SyncEvent{
+    Type: ian.SyncEventUpdate,
+    Files: event.GetRealPath(instance),
+    Message: fmt.Sprintf("ian: edit event '%s'", event.Path),
+  })
 }

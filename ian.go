@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -51,7 +50,8 @@ const CooldownJournalFilename string = ".cooldown-journal.toml"
 type SyncEventType int
 
 const (
-	SyncEventCreate SyncEventType = 1 << iota
+	SyncEventPing SyncEventType = 1 << iota
+	SyncEventCreate
 	SyncEventUpdate
 	SyncEventDelete
 )
@@ -68,8 +68,13 @@ type SyncCooldownInfo struct {
 
 // Sync is called whenever changes are made to event(s), and calls any configured commands.
 func (instance *Instance) Sync(eventInfo SyncEvent) error {
+  absRoot, err := filepath.Abs(instance.Root)
+  if err != nil {
+    return err
+  }
 	exportShellVars := fmt.Sprintf(
-		`export MESSAGE="%s"; export FILES="%s"; export TYPE=%d;`,
+		`cd %s; export MESSAGE="%s"; export FILES="%s"; export TYPE=%d;`,
+    absRoot,
 		strings.ReplaceAll(eventInfo.Message, `"`, `\"`),
 		strings.ReplaceAll(eventInfo.Files, `"`, `\"`),
 		eventInfo.Type,
@@ -79,8 +84,8 @@ func (instance *Instance) Sync(eventInfo SyncEvent) error {
 	var isJournalChanged bool
 
 	for name, listener := range instance.Config.Sync.Listeners {
-		if listener.Type&eventInfo.Type != 0 { // Type match
-      ready := true
+		if listener.Type == 0 || listener.Type&eventInfo.Type != 0 { // Type match
+			ready := true
 
 			if listener._Cooldown != 0 {
 				if cooldownJournal == nil {
@@ -88,7 +93,7 @@ func (instance *Instance) Sync(eventInfo SyncEvent) error {
 					if err != nil && !os.IsNotExist(err) {
 						return err
 					}
-					if _, err := toml.Decode(string(buf), cooldownJournal); err != nil {
+					if _, err := toml.Decode(string(buf), &cooldownJournal); err != nil {
 						return err
 					}
 				}
@@ -98,20 +103,20 @@ func (instance *Instance) Sync(eventInfo SyncEvent) error {
 				if now := time.Now(); lastChange.Add(listener._Cooldown).Before(now) {
 					// Cooldown gone
 					cooldownJournal.Cooldowns[name] = now
-          isJournalChanged = true
+					isJournalChanged = true
 				} else {
-          // Still in cooldown
-          ready = false
-        }
+					// Still in cooldown
+					ready = false
+				}
 			}
 
 			if ready {
-        cmd := exec.Command("sh", "-c", exportShellVars+listener.Command)
-        if err := cmd.Run(); err != nil {
-          buf := make([]byte, 32 * 1024)
-          cmd.Stderr.Write(buf)
-          log.Printf("warning: sync listener command '%s' exited unsuccessfully (%s). stderr: %s\n", name, err, string(buf))
-        }
+				cmd := exec.Command("sh", "-c", exportShellVars+listener.Command)
+				if err := cmd.Run(); err != nil {
+					buf := make([]byte, 32*1024)
+					cmd.Stderr.Write(buf)
+					log.Printf("warning: sync listener command '%s' exited unsuccessfully (%s). stderr: %s\n", name, err, string(buf))
+				}
 			}
 		}
 	}
@@ -129,23 +134,25 @@ func (instance *Instance) Sync(eventInfo SyncEvent) error {
 
 // CreateEvent creates an event in the instance.
 // containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
-func (instance *Instance) CreateEvent(props EventProperties, containerDir string) error {
+func (instance *Instance) CreateEvent(props EventProperties, containerDir string) (*Event, error) {
 	containerDir = SanitizePath(containerDir)
 
 	path, err := instance.getAvailableFilepath(
 		filepath.Join(containerDir, SanitizePath(props.FormatName())))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	(&Event{
+	event := Event{
 		Path:  path,
 		Props: props,
-	}).Write(instance)
+	}
+
+	event.Write(instance)
 
 	instance.ReadEvent(path)
 
-	return nil
+	return &event, nil
 }
 
 func (instance *Instance) getAvailableFilepath(originalPath string) (string, error) {
@@ -204,25 +211,36 @@ func (instance *Instance) ReadEvent(relPath string) error {
 func (instance *Instance) ReadEvents() error {
 	instance.Events = []Event{}
 
-	err := filepath.WalkDir(instance.Root, func(path string, d os.DirEntry, err error) error {
-		// Ignore directories and dotfiles
-		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
-			return nil
-		}
+  if err := instance.readDir(instance.Root); err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func (instance *Instance) readDir(dir string) error {
+	entries, err := os.ReadDir(dir)
+  if err != nil {
+    return err
+  }
+
+	for _, entry := range entries {
+    path := filepath.Join(dir, entry.Name())
+    if entry.IsDir() {
+      instance.readDir(path)
+      continue
+    }
+		// Ignore dotfiles
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
 		relPath, err := filepath.Rel(instance.Root, path)
 		if err != nil {
 			log.Println("warning: path for '"+path+"' failed and the event was ignored:", err)
-			return nil
+      continue
 		}
 
 		instance.ReadEvent(relPath)
-
-		return nil
-	})
-
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -282,6 +300,10 @@ type Event struct {
 
 func (event *Event) GetRealPath(instance *Instance) string {
 	return filepath.Join(instance.Root, event.Path)
+}
+
+func (event *Event) GetCalendarName() string {
+	return filepath.Dir(event.Path)
 }
 
 // Write writes the event to the appropriate location in 'instance'.

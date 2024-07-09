@@ -40,4 +40,10 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
   }
 
   fmt.Println("deleted event")
+
+  instance.Sync(ian.SyncEvent{
+    Type: ian.SyncEventDelete,
+    Files: event.GetRealPath(instance),
+    Message: fmt.Sprintf("ian: delete event '%s'", event.Path),
+  })
 }
