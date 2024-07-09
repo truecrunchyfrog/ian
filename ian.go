@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -43,7 +46,88 @@ func (instance *Instance) clearDir(name string) error {
 	return os.RemoveAll(filepath.Join(instance.Root, SanitizePath(name)))
 }
 
-// CreateEvent creates an event in the instance and returns it.
+const CooldownJournalFilename string = ".cooldown-journal.toml"
+
+type SyncEventType int
+
+const (
+	SyncEventCreate SyncEventType = 1 << iota
+	SyncEventUpdate
+	SyncEventDelete
+)
+
+type SyncEvent struct {
+	Type    SyncEventType
+	Files   string
+	Message string
+}
+
+type SyncCooldownInfo struct {
+	Cooldowns map[string]time.Time
+}
+
+// Sync is called whenever changes are made to event(s), and calls any configured commands.
+func (instance *Instance) Sync(eventInfo SyncEvent) error {
+	exportShellVars := fmt.Sprintf(
+		`export MESSAGE="%s"; export FILES="%s"; export TYPE=%d;`,
+		strings.ReplaceAll(eventInfo.Message, `"`, `\"`),
+		strings.ReplaceAll(eventInfo.Files, `"`, `\"`),
+		eventInfo.Type,
+	)
+
+	var cooldownJournal *SyncCooldownInfo
+	var isJournalChanged bool
+
+	for name, listener := range instance.Config.Sync.Listeners {
+		if listener.Type&eventInfo.Type != 0 { // Type match
+      ready := true
+
+			if listener._Cooldown != 0 {
+				if cooldownJournal == nil {
+					buf, err := os.ReadFile(filepath.Join(instance.Root, CooldownJournalFilename))
+					if err != nil && !os.IsNotExist(err) {
+						return err
+					}
+					if _, err := toml.Decode(string(buf), cooldownJournal); err != nil {
+						return err
+					}
+				}
+
+				// Don't need to check if map item exists with 'ok' because if it doesn't, lastChange will be 0 and it will work anyway.
+				lastChange := cooldownJournal.Cooldowns[name]
+				if now := time.Now(); lastChange.Add(listener._Cooldown).Before(now) {
+					// Cooldown gone
+					cooldownJournal.Cooldowns[name] = now
+          isJournalChanged = true
+				} else {
+          // Still in cooldown
+          ready = false
+        }
+			}
+
+			if ready {
+        cmd := exec.Command("sh", "-c", exportShellVars+listener.Command)
+        if err := cmd.Run(); err != nil {
+          buf := make([]byte, 32 * 1024)
+          cmd.Stderr.Write(buf)
+          log.Printf("warning: sync listener command '%s' exited unsuccessfully (%s). stderr: %s\n", name, err, string(buf))
+        }
+			}
+		}
+	}
+
+	if isJournalChanged {
+		buf := new(bytes.Buffer)
+		if err := toml.NewEncoder(buf).Encode(cooldownJournal); err != nil {
+			return err
+		}
+		os.WriteFile(filepath.Join(instance.Root, CooldownJournalFilename), buf.Bytes(), 0644)
+	}
+
+	return nil
+}
+
+// CreateEvent creates an event in the instance.
 // containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
 func (instance *Instance) CreateEvent(props EventProperties, containerDir string) error {
 	containerDir = SanitizePath(containerDir)
@@ -93,10 +177,10 @@ func (instance *Instance) ReadEvent(relPath string) error {
 		return nil
 	}
 
-  if err := props.Verify(); err != nil {
+	if err := props.Verify(); err != nil {
 		log.Println("warning: '"+path+"' failed verification and the event was ignored:", err)
 		return nil
-  }
+	}
 
 	// Delete old version if it exists:
 	i := slices.IndexFunc(instance.Events, func(event Event) bool {
@@ -107,9 +191,9 @@ func (instance *Instance) ReadEvent(relPath string) error {
 	}
 
 	instance.Events = append(instance.Events, Event{
-		Path:     relPath,
-		Props:    props,
-		Constant: isPathInCache(relPath),
+		Path:   relPath,
+		Props:  props,
+		Cached: isPathInCache(relPath),
 	})
 
 	return nil
@@ -142,6 +226,15 @@ func (instance *Instance) ReadEvents() error {
 	}
 
 	return nil
+}
+
+func (instance *Instance) GetEvent(relPath string) (*Event, error) {
+	for _, ev := range instance.Events {
+		if ev.Path == relPath {
+			return &ev, nil
+		}
+	}
+	return nil, fmt.Errorf("no such event '%s'", relPath)
 }
 
 func (instance *Instance) FilterEvents(filter func(Event) bool) []Event {
@@ -183,9 +276,8 @@ type Event struct {
 	Path  string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
 	Props EventProperties
 
-	// Constant is true if the event should not be changed.
-	// This is used for static imported calendars.
-	Constant bool
+	// Cached is true if the event should not be changed and is a cached event.
+	Cached bool
 }
 
 func (event *Event) GetRealPath(instance *Instance) string {
@@ -233,6 +325,11 @@ type EventProperties struct {
 	Modified time.Time
 }
 
+func isUrl(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
 func (p *EventProperties) Verify() error {
 	switch {
 	case p.Summary == "":
@@ -243,15 +340,16 @@ func (p *EventProperties) Verify() error {
 		return errors.New("created cannot be chronologically after modified")
 	case p.AllDay:
 		if !p.Start.Equal(time.Date(p.Start.Year(), p.Start.Month(), p.Start.Day(), 0, 0, 0, 0, p.Start.Location())) {
-      return errors.New("all-day event start must be at midnight")
+			return errors.New("all-day event start must be at midnight")
 		}
 		if !p.Start.AddDate(0, 0, 1).Add(-time.Second).Equal(p.End) {
-      return errors.New("all-day event end must be exactly 24 hours minus 1 second after start")
+			return errors.New("all-day event end must be exactly 24 hours minus 1 second after start")
 		}
-		fallthrough
-	default:
-		return nil
+	case p.Url != "" && !isUrl(p.Url):
+		return errors.New("URL is invalid")
 	}
+
+	return nil
 }
 
 func (props *EventProperties) FormatName() string {

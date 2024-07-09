@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -217,6 +218,5 @@ func (instance *Instance) CacheEvents(name string, eventsProps []EventProperties
 }
 
 func isPathInCache(relPath string) bool {
-	parts := filepath.SplitList(relPath)
-	return len(parts) >= 2 && parts[0] == CacheDirName
+  return strings.HasPrefix(relPath, CacheDirName + "/")
 }

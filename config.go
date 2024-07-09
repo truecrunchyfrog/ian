@@ -16,10 +16,35 @@ const CalendarConfigFilename string = ".config.toml"
 type Config struct {
 	Calendars map[string]ContainerConfig
 	Sources   map[string]CalendarSource
+	Sync      SyncConfig
 }
 
 type ContainerConfig struct {
 	Color color.RGBA
+}
+
+type SyncConfig struct {
+	// Listeners contains a list of shell commands that are executed when certain calendar event changes occur.
+	// Useful for synchronizing VCS, backups, or pinging an ian server.
+	Listeners map[string]struct {
+		// Command is run as a shell command when an event is updated, in the instance directory.
+		//
+		// Use $MESSAGE in the command to embed the message describing the event change.
+		//
+		// Use $FILES for a space-separated string with the affected file(s).
+		//
+		// Use $TYPE for the event type ID.
+		//
+		// Any stderr output from the command is printed to the user in the form of a warning.
+		//
+		// Example: 'git add -A && git commit -m "{{.Message}}" && git push'
+		Command string
+		// Type is a bitmask that represents the event(s) to listen to.
+		Type SyncEventType
+		// Cooldown is parsed as a time.Duration, and is the duration that has to pass before the command is executed again, to prevent fast-paced command execution.
+		Cooldown  string
+		_Cooldown time.Duration
+	}
 }
 
 func getConfigPath(root string) string {
@@ -50,6 +75,20 @@ func ReadConfig(root string) (Config, error) {
 			}
 
 			source._Lifetime = d
+		}
+	}
+
+	for name, listener := range config.Sync.Listeners {
+		if listener.Cooldown != "" {
+			d, err := time.ParseDuration(listener.Cooldown)
+			if err != nil {
+				return Config{}, err
+			}
+			if d < 0 {
+				return Config{}, errors.New("in configuration listener '" + name + "': cooldown cannot be negative.")
+			}
+
+			listener._Cooldown = d
 		}
 	}
 

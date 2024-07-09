@@ -1,5 +1,5 @@
 // TODO clean this mess of a file
-package main
+package cmd
 
 import (
 	"fmt"

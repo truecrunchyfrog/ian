@@ -8,3 +8,5 @@
 * create flag to 'add' command to prevent event creation if there are colliding events
 * iCal Rrule support
 * CalDAV support
+* create benchmarks and tests
+* archiving
