@@ -160,27 +160,28 @@ func DurationToString(d time.Duration) string {
 
 	d = d.Abs()
 
-	switch {
-	case d.Hours() >= 24:
+	if d.Hours() >= 24 {
 		days := d.Hours() / 24
 		parts = append(parts, fmt.Sprintf("%dd", int(days)))
 		d %= 24 * time.Hour
 		if days >= 5 {
-			break
+			goto end
 		}
-	case d.Hours() >= 1:
+  }
+	if d.Hours() >= 1 {
 		parts = append(parts, fmt.Sprintf("%dh", int(d.Hours())))
 		d %= time.Hour
-		fallthrough
-	case d.Minutes() >= 1 && len(parts) < 2:
+  }
+	if d.Minutes() >= 1 && len(parts) < 2 {
 		parts = append(parts, fmt.Sprintf("%dm", int(d.Minutes())))
 		d %= time.Minute
-		fallthrough
-	case d.Seconds() >= 1 && len(parts) < 2:
+  }
+	if d.Seconds() >= 1 && len(parts) < 2 {
 		parts = append(parts, fmt.Sprintf("%ds", int(d.Seconds())))
 		d %= time.Second
-	}
+  }
 
+  end:
 	return output + strings.Join(parts, " ")
 }
 

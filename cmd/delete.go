@@ -31,8 +31,8 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
     log.Fatal(err)
   }
 
-  if event.Cached {
-    log.Fatalf("'%s' is a cached event. to remove the entire source, remove it from your configuration and run 'ian sources --clean'. alternatively delete the file manually (not recommended).\n", event.Path)
+  if event.Constant {
+    log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
   }
 
   if err := os.Remove(event.GetRealPath(instance)); err != nil {

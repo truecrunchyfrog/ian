@@ -59,13 +59,14 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
 
     pairs := []struct{key string; value any}{
       { "path", event.Path },
-      { "cached", event.Cached },
+      { "cached", event.Constant },
       { "", "" },
       { "summary", event.Props.Summary },
       { "start", event.Props.Start },
       { "end", event.Props.End },
       { "duration", ian.DurationToString(event.Props.End.Sub(event.Props.Start)) },
       { "all-day", event.Props.AllDay },
+      { "rrule", event.Props.Rrule },
       { "", "" },
       { "description", event.Props.Description },
       { "location", event.Props.Location },

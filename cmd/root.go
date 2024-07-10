@@ -1,4 +1,3 @@
-// TODO clean this mess of a file
 package cmd
 
 import (
@@ -188,7 +187,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	var monthStart time.Time
-	if viper.GetBool("past") {
+	if month != int(now.Month()) || viper.GetBool("past") {
 		monthStart = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
 	} else {
 		monthStart = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
@@ -251,7 +250,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}))
 
 	if !emptyCalendar && !viper.GetBool("no-timeline") {
-		fmt.Println(ian.DisplayTimeline(instance, monthStart, monthEnd, events, GetTimeZone()))
+		fmt.Println(ian.DisplayTimeline(instance, events, GetTimeZone()))
 	}
 
 	if !emptyCalendar && !viper.GetBool("no-legend") {
