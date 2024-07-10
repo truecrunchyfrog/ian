@@ -91,7 +91,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	}
 	event.Props.Modified = time.Now().In(GetTimeZone())
-	if err := event.Props.Verify(); err != nil {
+	if err := event.Props.Validate(); err != nil {
 		log.Fatalf("verification failed: %s", err)
 	}
   checkCollision(instance, event.Props)
@@ -103,5 +103,5 @@ func editCmdRun(cmd *cobra.Command, args []string) {
     Type: ian.SyncEventUpdate,
     Files: event.GetRealPath(instance),
     Message: fmt.Sprintf("ian: edit event '%s'", event.Path),
-  })
+  }, false, nil)
 }

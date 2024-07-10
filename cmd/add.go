@@ -132,7 +132,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		Modified:    now,
 	}
 
-	if err := props.Verify(); err != nil {
+	if err := props.Validate(); err != nil {
 		log.Fatal("invalid event: ", err)
 	}
 
@@ -161,5 +161,5 @@ func addCmdRun(cmd *cobra.Command, args []string) {
     Type: ian.SyncEventCreate,
     Files: event.GetRealPath(instance),
     Message: fmt.Sprintf("ian: create event '%s'", event.Path),
-  })
+  }, false, nil)
 }

@@ -18,6 +18,7 @@ import (
 var cfgFile string
 var noCollision bool
 var collisionExceptions []string
+var ignoreCollisionWarnings bool
 
 var emptyCalendar bool
 
@@ -68,17 +69,21 @@ func GetTimeZone() *time.Location {
 }
 
 func checkCollision(instance *ian.Instance, props ian.EventProperties) {
-  collidingEvents := instance.FilterEvents(func(e ian.Event) bool {
-    return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.Start, props.End, e.Props.Start, e.Props.End)
-  })
+	if !ignoreCollisionWarnings || noCollision {
+		collidingEvents := instance.FilterEvents(func(e *ian.Event) bool {
+			return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.Start, props.End, e.Props.Start, e.Props.End)
+		})
 
-  for _, collidingEvent := range collidingEvents {
-    fmt.Printf("warning: this event collides with '%s'.\n", collidingEvent.Props.Summary)
-  }
+		if !ignoreCollisionWarnings {
+			for _, collidingEvent := range collidingEvents {
+				fmt.Printf("warning: this event collides with '%s'.\n", collidingEvent.Props.Summary)
+			}
+		}
 
-  if len(collidingEvents) != 0 && noCollision {
-    log.Fatal("COLLISION! cannot set event in that period, because it collides with other events.\nif you want to set it anyway, either disable the 'no-collision' preference/flag or add a '--no-collision=false' flag to temporarily override it.")
-  }
+		if len(collidingEvents) != 0 && noCollision {
+			log.Fatal("COLLISION! cannot set event in that period, because it collides with other events.\nif you want to set it anyway, either disable the 'no-collision' preference/flag or add a '--no-collision=false' flag to temporarily override it.")
+		}
+	}
 }
 
 func init() {
@@ -98,10 +103,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&ian.Verbose, "verbose", "v", false, "Enable verbose mode. More information is given.")
 	rootCmd.PersistentFlags().BoolVar(&noCollision, "no-collision", false, "Prevent events from being created or edited to collide with another event.")
 	rootCmd.PersistentFlags().StringSliceVar(&collisionExceptions, "collision-exceptions", []string{}, "Mark a list of `calendars` as exceptions for collisions. When a calendar is listed, collision warnings will not be shown, and when combined with 'no-collision' a collision for an event within a calendar specified here will pass.")
+	rootCmd.PersistentFlags().BoolVar(&ignoreCollisionWarnings, "no-collision-warnings", false, "Hides the warnings shown when an event will collide with an existing event.")
 	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
 	viper.BindPFlag("no-collision", rootCmd.PersistentFlags().Lookup("no-collision"))
 	viper.BindPFlag("collision-exceptions", rootCmd.PersistentFlags().Lookup("collision-exceptions"))
+	viper.BindPFlag("no-collision-warnings", rootCmd.PersistentFlags().Lookup("no-collision-warnings"))
 
 	rootCmd.Flags().Bool("sunday", false, "Use sunday instead of monday as the first day of the week.")
 	rootCmd.Flags().BoolP("weeks", "w", false, "Show week numbers.")
@@ -110,17 +117,19 @@ func init() {
 	rootCmd.Flags().Bool("no-event-coloring", false, "Do not color the calendar days based on events occuring then.")
 	rootCmd.Flags().Bool("no-day-hinting", false, "Do not color the current day.")
 	rootCmd.Flags().Bool("no-week-hinting", false, "Do not show a brighter color on the current week and weekday.")
-	rootCmd.Flags().Bool("no-borders", false, "Do not show week/weekday borders.")
+	rootCmd.Flags().Bool("borders", false, "Show week/weekday borders.")
 	rootCmd.Flags().Uint("daywidth", 3, "Width per calendar day in character length.")
 	rootCmd.Flags().BoolP("past", "p", false, "Include past events in the timeline.")
+  rootCmd.Flags().Bool("no-legend", false, "Do not show the calendar legend that shows what colors belong to what calendar.")
 	viper.BindPFlag("sunday", rootCmd.Flags().Lookup("sunday"))
 	viper.BindPFlag("weeks", rootCmd.Flags().Lookup("weeks"))
 	viper.BindPFlag("no-timeline", rootCmd.Flags().Lookup("no-timeline"))
 	viper.BindPFlag("no-event-coloring", rootCmd.Flags().Lookup("no-event-coloring"))
 	viper.BindPFlag("no-week-hinting", rootCmd.Flags().Lookup("no-week-hinting"))
-	viper.BindPFlag("no-borders", rootCmd.Flags().Lookup("no-borders"))
+	viper.BindPFlag("borders", rootCmd.Flags().Lookup("borders"))
 	viper.BindPFlag("daywidth", rootCmd.Flags().Lookup("daywidth"))
 	viper.BindPFlag("past", rootCmd.Flags().Lookup("past"))
+	viper.BindPFlag("no-legend", rootCmd.Flags().Lookup("no-legend"))
 }
 
 func initConfig() {
@@ -178,6 +187,18 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
+	var monthStart time.Time
+	if viper.GetBool("past") {
+		monthStart = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
+	} else {
+		monthStart = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
+	}
+	monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Second)
+
+	events := instance.FilterEvents(func(e *ian.Event) bool {
+		return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, monthStart, monthEnd)
+	})
+
 	fmt.Println(ian.DisplayCalendar(
 		GetTimeZone(),
 		year,
@@ -186,7 +207,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		sunday,
 		showWeeks,
 		!viper.GetBool("no-week-hinting"),
-		!viper.GetBool("no-borders"),
+		viper.GetBool("borders"),
 		int(widthPerDay),
 		func(monthDay int, isToday bool) (string, bool) {
 			if isToday {
@@ -195,13 +216,32 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
 				dayStart := time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
 				dayEnd := dayStart.AddDate(0, 0, 1).Add(-time.Second)
-				eventsInDay := instance.FilterEvents(func(e ian.Event) bool {
-					return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, dayStart, dayEnd)
-				})
+        eventsInDay := []*ian.Event{}
+        for _, event := range events {
+          if ian.DoPeriodsMeet(event.Props.Start, event.Props.End, dayStart, dayEnd) {
+            eventsInDay = append(eventsInDay, event)
+          }
+        }
 				switch {
 				case len(eventsInDay) == 1:
-					return ian.GetEventRgbAnsiSeq(&eventsInDay[0], instance, false), false
+					return ian.GetEventRgbAnsiSeq(eventsInDay[0], instance, false), false
 				case len(eventsInDay) > 1:
+          sameCalendar := true
+          var calendar string
+          for _, event := range eventsInDay {
+            if calendar == "" {
+              calendar = event.GetCalendarName()
+              continue
+            }
+
+            if calendar != event.GetCalendarName() {
+              sameCalendar = false
+              break
+            }
+          }
+          if sameCalendar {
+            return ian.GetEventRgbAnsiSeq(eventsInDay[0], instance, false) + "\033[4m", false
+          }
 					return "\033[4m", false
 				default:
 					return "\033[2m", false
@@ -211,18 +251,10 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}))
 
 	if !emptyCalendar && !viper.GetBool("no-timeline") {
-    var monthStart time.Time
-		if viper.GetBool("past") {
-			monthStart = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
-		} else {
-      monthStart = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
-    }
-		monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Second)
-
-		events := instance.FilterEvents(func(e ian.Event) bool {
-			return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, monthStart, monthEnd)
-		})
-
 		fmt.Println(ian.DisplayTimeline(instance, monthStart, monthEnd, events, GetTimeZone()))
+	}
+
+	if !emptyCalendar && !viper.GetBool("no-legend") {
+		fmt.Println("\n" + ian.DisplayCalendarLegend(instance, events))
 	}
 }

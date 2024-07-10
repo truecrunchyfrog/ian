@@ -31,7 +31,7 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	query := args[0]
-	var matches []ian.Event
+	var matches []*ian.Event
 
 	for _, ev := range instance.Events {
 		if strings.Contains(ev.Path, query) || strings.Contains(ev.Props.Summary, query) || strings.Contains(ev.Props.Description, query) {

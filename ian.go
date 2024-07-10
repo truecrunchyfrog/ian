@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -26,7 +25,7 @@ func SanitizePath(path string) string {
 type Instance struct {
 	Root   string
 	Config Config
-	Events []Event
+	Events []*Event
 }
 
 // Work performs maintenance work and is run on every instance creation.
@@ -43,93 +42,6 @@ func (instance *Instance) Work() error {
 
 func (instance *Instance) clearDir(name string) error {
 	return os.RemoveAll(filepath.Join(instance.Root, SanitizePath(name)))
-}
-
-const CooldownJournalFilename string = ".cooldown-journal.toml"
-
-type SyncEventType int
-
-const (
-	SyncEventPing SyncEventType = 1 << iota
-	SyncEventCreate
-	SyncEventUpdate
-	SyncEventDelete
-)
-
-type SyncEvent struct {
-	Type    SyncEventType
-	Files   string
-	Message string
-}
-
-type SyncCooldownInfo struct {
-	Cooldowns map[string]time.Time
-}
-
-// Sync is called whenever changes are made to event(s), and calls any configured commands.
-func (instance *Instance) Sync(eventInfo SyncEvent) error {
-  absRoot, err := filepath.Abs(instance.Root)
-  if err != nil {
-    return err
-  }
-	exportShellVars := fmt.Sprintf(
-		`cd %s; export MESSAGE="%s"; export FILES="%s"; export TYPE=%d;`,
-    absRoot,
-		strings.ReplaceAll(eventInfo.Message, `"`, `\"`),
-		strings.ReplaceAll(eventInfo.Files, `"`, `\"`),
-		eventInfo.Type,
-	)
-
-	var cooldownJournal *SyncCooldownInfo
-	var isJournalChanged bool
-
-	for name, listener := range instance.Config.Sync.Listeners {
-		if listener.Type == 0 || listener.Type&eventInfo.Type != 0 { // Type match
-			ready := true
-
-			if listener._Cooldown != 0 {
-				if cooldownJournal == nil {
-					buf, err := os.ReadFile(filepath.Join(instance.Root, CooldownJournalFilename))
-					if err != nil && !os.IsNotExist(err) {
-						return err
-					}
-					if _, err := toml.Decode(string(buf), &cooldownJournal); err != nil {
-						return err
-					}
-				}
-
-				// Don't need to check if map item exists with 'ok' because if it doesn't, lastChange will be 0 and it will work anyway.
-				lastChange := cooldownJournal.Cooldowns[name]
-				if now := time.Now(); lastChange.Add(listener._Cooldown).Before(now) {
-					// Cooldown gone
-					cooldownJournal.Cooldowns[name] = now
-					isJournalChanged = true
-				} else {
-					// Still in cooldown
-					ready = false
-				}
-			}
-
-			if ready {
-				cmd := exec.Command("sh", "-c", exportShellVars+listener.Command)
-				if err := cmd.Run(); err != nil {
-					buf := make([]byte, 32*1024)
-					cmd.Stderr.Write(buf)
-					log.Printf("warning: sync listener command '%s' exited unsuccessfully (%s). stderr: %s\n", name, err, string(buf))
-				}
-			}
-		}
-	}
-
-	if isJournalChanged {
-		buf := new(bytes.Buffer)
-		if err := toml.NewEncoder(buf).Encode(cooldownJournal); err != nil {
-			return err
-		}
-		os.WriteFile(filepath.Join(instance.Root, CooldownJournalFilename), buf.Bytes(), 0644)
-	}
-
-	return nil
 }
 
 // CreateEvent creates an event in the instance.
@@ -184,20 +96,20 @@ func (instance *Instance) ReadEvent(relPath string) error {
 		return nil
 	}
 
-	if err := props.Verify(); err != nil {
-		log.Println("warning: '"+path+"' failed verification and the event was ignored:", err)
+	if err := props.Validate(); err != nil {
+		log.Println("warning: '"+path+"' failed validation and the event was ignored:", err)
 		return nil
 	}
 
 	// Delete old version if it exists:
-	i := slices.IndexFunc(instance.Events, func(event Event) bool {
+	i := slices.IndexFunc(instance.Events, func(event *Event) bool {
 		return event.Path == relPath
 	})
 	if i != -1 {
 		instance.Events = slices.Delete(instance.Events, i, i+1)
 	}
 
-	instance.Events = append(instance.Events, Event{
+	instance.Events = append(instance.Events, &Event{
 		Path:   relPath,
 		Props:  props,
 		Cached: isPathInCache(relPath),
@@ -209,9 +121,9 @@ func (instance *Instance) ReadEvent(relPath string) error {
 // ReadEvents reads and parses all events in the instance directory (recursively).
 // Dotfiles are ignored.
 func (instance *Instance) ReadEvents() error {
-	instance.Events = []Event{}
+	instance.Events = []*Event{}
 
-  if err := instance.readDir(instance.Root); err != nil {
+	if err := instance.readDir(instance.Root); err != nil {
 		return err
 	}
 
@@ -219,17 +131,22 @@ func (instance *Instance) ReadEvents() error {
 }
 
 func (instance *Instance) readDir(dir string) error {
+	// Ignore dot directories, like '.git'.
+	if dir != instance.Root && strings.HasPrefix(filepath.Base(dir), ".") {
+		return nil
+	}
+
 	entries, err := os.ReadDir(dir)
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
 	for _, entry := range entries {
-    path := filepath.Join(dir, entry.Name())
-    if entry.IsDir() {
-      instance.readDir(path)
-      continue
-    }
+		path := filepath.Join(dir, entry.Name())
+		if entry.IsDir() {
+			instance.readDir(path)
+			continue
+		}
 		// Ignore dotfiles
 		if strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -237,7 +154,7 @@ func (instance *Instance) readDir(dir string) error {
 		relPath, err := filepath.Rel(instance.Root, path)
 		if err != nil {
 			log.Println("warning: path for '"+path+"' failed and the event was ignored:", err)
-      continue
+			continue
 		}
 
 		instance.ReadEvent(relPath)
@@ -249,14 +166,14 @@ func (instance *Instance) readDir(dir string) error {
 func (instance *Instance) GetEvent(relPath string) (*Event, error) {
 	for _, ev := range instance.Events {
 		if ev.Path == relPath {
-			return &ev, nil
+			return ev, nil
 		}
 	}
 	return nil, fmt.Errorf("no such event '%s'", relPath)
 }
 
-func (instance *Instance) FilterEvents(filter func(Event) bool) []Event {
-	events := []Event{}
+func (instance *Instance) FilterEvents(filter func(*Event) bool) []*Event {
+	events := []*Event{}
 
 	for _, event := range instance.Events {
 		if filter(event) {
@@ -276,7 +193,7 @@ func CreateInstance(root string, performWork bool) (*Instance, error) {
 	instance := &Instance{
 		Root:   root,
 		Config: config,
-		Events: []Event{},
+		Events: []*Event{},
 	}
 
 	if performWork {
@@ -343,6 +260,8 @@ type EventProperties struct {
 	End    time.Time
 	AllDay bool
 
+	Recurrence RecurrenceRule
+
 	Created  time.Time
 	Modified time.Time
 }
@@ -352,7 +271,7 @@ func isUrl(str string) bool {
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
-func (p *EventProperties) Verify() error {
+func (p *EventProperties) Validate() error {
 	switch {
 	case p.Summary == "":
 		return errors.New("summary cannot be empty")

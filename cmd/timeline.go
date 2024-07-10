@@ -8,7 +8,11 @@ import (
 	"github.com/truecrunchyfrog/ian"
 )
 
+var noLegend bool
+
 func init() {
+  timelineCmd.Flags().BoolVar(&noLegend, "no-legend", false, "Do not show the calendar legend that shows what colors belong to what calendar.")
+
 	rootCmd.AddCommand(timelineCmd)
 }
 
@@ -35,4 +39,8 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
   }
 
   fmt.Println(ian.DisplayTimeline(instance, from, to, instance.Events, GetTimeZone()))
+
+  if !noLegend {
+    fmt.Println("\n" + ian.DisplayCalendarLegend(instance, instance.Events))
+  }
 }

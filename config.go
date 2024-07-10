@@ -37,13 +37,13 @@ type SyncConfig struct {
 		//
 		// Any stderr output from the command is printed to the user in the form of a warning.
 		//
-		// Example: 'git add -A && git commit -m "{{.Message}}" && git push'
+		// Example: 'git add . && git commit -m "$MESSAGE" && (git pull; git push)'
 		Command string
 		// Type is a bitmask that represents the event(s) to listen to.
 		Type SyncEventType
 		// Cooldown is parsed as a time.Duration, and is the duration that has to pass before the command is executed again, to prevent fast-paced command execution.
 		Cooldown  string
-		_Cooldown time.Duration
+		Cooldown_ time.Duration
 	}
 }
 
@@ -74,7 +74,8 @@ func ReadConfig(root string) (Config, error) {
 				return Config{}, errors.New("in configuration source '" + name + "': lifetime cannot be negative.")
 			}
 
-			source._Lifetime = d
+			source.Lifetime_ = d
+      config.Sources[name] = source
 		}
 	}
 
@@ -88,7 +89,8 @@ func ReadConfig(root string) (Config, error) {
 				return Config{}, errors.New("in configuration listener '" + name + "': cooldown cannot be negative.")
 			}
 
-			listener._Cooldown = d
+			listener.Cooldown_ = d
+      config.Sync.Listeners[name] = listener
 		}
 	}
 

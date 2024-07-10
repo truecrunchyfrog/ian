@@ -30,7 +30,7 @@ type CalendarSource struct {
 	// Parsed with time.ParseDuration...
 	Lifetime string
 	// and inserted here:
-	_Lifetime time.Duration
+	Lifetime_ time.Duration
 }
 
 type CacheJournal struct {
@@ -129,8 +129,8 @@ func (instance *Instance) UpdateSources() error {
 		}
 
 		var lifetime time.Duration
-		if source.Lifetime != "" {
-			lifetime = source._Lifetime
+		if source.Lifetime_ != 0 {
+			lifetime = source.Lifetime_
 		} else {
 			lifetime = DefaultCacheLifetime
 		}
@@ -173,7 +173,7 @@ func (instance *Instance) UpdateSources() error {
 
 	if isJournalChanged {
     if Verbose {
-      log.Printf("updating journal:\n%s\n", journal)
+      log.Println("updating journal")
     }
 
 		bufOut := new(bytes.Buffer)

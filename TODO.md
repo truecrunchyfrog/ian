@@ -1,3 +1,4 @@
+* repeating events/Rrule
 * 'move' command to move events between containers
 * path to proper path, not filepath
 * parallel timeline item support
@@ -7,3 +8,4 @@
 * CalDAV support
 * create benchmarks and tests
 * archiving
+* create busy/free system and replace the "collision" system with it
