@@ -3,32 +3,16 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/teambition/rrule-go"
 	"github.com/truecrunchyfrog/ian"
 )
 
-const editFlag_Summary = "summary"
-const editFlag_Start = "start"
-const editFlag_End = "end"
-const editFlag_AllDay = "all-day"
-const editFlag_Description = "description"
-const editFlag_Location = "location"
-const editFlag_Url = "url"
-
 func init() {
-	editCmd.Flags().String(editFlag_Summary, "", "Event brief.")
-
-	editCmd.Flags().String(editFlag_Start, "", "Start date.")
-	editCmd.Flags().String(editFlag_End, "", "End date.")
-	editCmd.Flags().Bool(editFlag_AllDay, false, "If the event should be marked as all-day.")
-
-	editCmd.Flags().String(editFlag_Description, "", "Detailed event description.")
-	editCmd.Flags().String(editFlag_Location, "", "Where the event is taking place.")
-	editCmd.Flags().String(editFlag_Url, "", "Online reference.")
-
-	rootCmd.AddCommand(editCmd)
+	eventPropsCmd.AddCommand(editCmd)
 }
 
 var editCmd = &cobra.Command{
@@ -53,41 +37,87 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
 	}
 
-	modified := true
+  flags := []string {
+    eventFlag_Summary,
+    eventFlag_Start,
+    eventFlag_End,
+    eventFlag_AllDay,
+    eventFlag_Description,
+    eventFlag_Location,
+    eventFlag_Url,
+    eventFlag_Duration,
+    eventFlag_Hours,
+    eventFlag_Calendar,
+    eventFlag_Recurrence,
+  }
 
-	switch {
-	case cmd.Flags().Lookup(editFlag_Summary).Changed: // Summary
-		event.Props.Summary, _ = cmd.Flags().GetString(editFlag_Summary)
-	case cmd.Flags().Lookup(editFlag_Start).Changed: // Start
-		startString, _ := cmd.Flags().GetString(editFlag_Start)
+	if eventFlags.Changed(eventFlag_Summary) { // Summary
+		event.Props.Summary, _ = eventFlags.GetString(eventFlag_Summary)
+  }
+	if eventFlags.Changed(eventFlag_Start) { // Start
+		startString, _ := eventFlags.GetString(eventFlag_Start)
 		start, err := ian.ParseDateTime(startString, GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
 		event.Props.Start = start
-	case cmd.Flags().Lookup(editFlag_End).Changed: // End
-		endString, _ := cmd.Flags().GetString(editFlag_End)
+  }
+	if eventFlags.Changed(eventFlag_End) { // End
+		endString, _ := eventFlags.GetString(eventFlag_End)
 		end, err := ian.ParseDateTime(endString, GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
 		event.Props.End = end
-	case cmd.Flags().Lookup(editFlag_AllDay).Changed: // All day
-		event.Props.AllDay, _ = cmd.Flags().GetBool(editFlag_AllDay)
+  }
+	if eventFlags.Changed(eventFlag_AllDay) { // All day
+		event.Props.AllDay, _ = eventFlags.GetBool(eventFlag_AllDay)
+  }
+	if eventFlags.Changed(eventFlag_Description) { // Description
+		event.Props.Description, _ = eventFlags.GetString(eventFlag_Description)
+  }
+	if eventFlags.Changed(eventFlag_Location) { // Location
+		event.Props.Location, _ = eventFlags.GetString(eventFlag_Location)
+  }
+	if eventFlags.Changed(eventFlag_Url) { // URL
+		event.Props.Url, _ = eventFlags.GetString(eventFlag_Url)
+  }
+  if eventFlags.Changed(eventFlag_Duration) { // Duration
+    d, _ := eventFlags.GetDuration(eventFlag_Duration)
+    event.Props.End = event.Props.Start.Add(d)
+  }
+  if eventFlags.Changed(eventFlag_Hours) { // Hours
+    hours, _ := eventFlags.GetStringSlice(eventFlag_Hours)
+    if err := handleHours(hours, &event.Props.Start, &event.Props.End); err != nil {
+      log.Fatal(err)
+    }
+  }
+  if eventFlags.Changed(eventFlag_Calendar) { // Calendar
+    event.Path, _ = eventFlags.GetString(eventFlag_Calendar)
+    if ian.IsPathInCache(event.Path) {
+      log.Fatal("cannot set calendar to inside cache")
+    }
+    fmt.Println("note: event is being moved to another file location.")
+  }
+  if eventFlags.Changed(eventFlag_Recurrence) { // Recurrence
+    recurrenceFlag, _ := eventFlags.GetString(eventFlag_Recurrence)
+		rruleSet, err := rrule.StrToRRuleSet(recurrenceFlag)
+		if err != nil {
+			log.Fatal("'recurrence' set is invalid: ", err)
+		}
+		rruleSet.DTStart(event.Props.Start)
+		event.Props.Rrule = rruleSet.String()
+  }
 
-	case cmd.Flags().Lookup(editFlag_Description).Changed: // Description
-		event.Props.Description, _ = cmd.Flags().GetString(editFlag_Description)
-	case cmd.Flags().Lookup(editFlag_Location).Changed: // Location
-		event.Props.Location, _ = cmd.Flags().GetString(editFlag_Location)
-	case cmd.Flags().Lookup(editFlag_Url).Changed: // URL
-		event.Props.Url, _ = cmd.Flags().GetString(editFlag_Url)
-	default:
-		modified = false
-	}
+  var modified []string
+  for _, flag := range flags {
+    if eventFlags.Changed(flag) {
+      modified = append(modified, flag)
+    }
+  }
 
-	if !modified {
-		log.Fatal("no changes described. use the flags listed below to modify the event.")
-		cmd.Help()
+	if len(modified) == 0 {
+		log.Fatal("no changes described. check the help page for a list of values to change.")
 	}
 	event.Props.Modified = time.Now().In(GetTimeZone())
 	if err := event.Props.Validate(); err != nil {
@@ -96,11 +126,11 @@ func editCmdRun(cmd *cobra.Command, args []string) {
   checkCollision(instance, event.Props)
 
 	event.Write(instance)
-	fmt.Printf("'%s' has been updated\n", event.Path)
+  fmt.Printf("'%s' has been updated; %s\n", event.Path, strings.Join(modified, ", "))
 
   instance.Sync(ian.SyncEvent{
     Type: ian.SyncEventUpdate,
     Files: event.GetRealPath(instance),
-    Message: fmt.Sprintf("ian: edit event '%s'", event.Path),
+    Message: fmt.Sprintf("ian: edit event '%s'; %s", event.Path, strings.Join(modified, ", ")),
   }, false, nil)
 }

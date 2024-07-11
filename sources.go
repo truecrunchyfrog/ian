@@ -221,6 +221,6 @@ func (instance *Instance) CacheEvents(name string, eventsProps []EventProperties
 	return nil
 }
 
-func isPathInCache(relPath string) bool {
+func IsPathInCache(relPath string) bool {
   return strings.HasPrefix(relPath, CacheDirName + "/")
 }

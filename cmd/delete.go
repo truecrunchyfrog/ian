@@ -10,11 +10,11 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(deleteCmd)
+	eventPropsCmd.AddCommand(deleteCmd)
 }
 
 var deleteCmd = &cobra.Command{
-	Use:   "delete <path>",
+	Use:   "rm <path>",
 	Short: "Delete an event",
 	Args:  cobra.ExactArgs(1),
 	Run:   deleteCmdRun,
@@ -32,7 +32,7 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
   }
 
   if event.Constant {
-    log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
+    log.Fatalf("'%s' is a constant event and cannot be deleted by itself.\n", event.Path)
   }
 
   if err := os.Remove(event.GetRealPath(instance)); err != nil {

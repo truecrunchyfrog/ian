@@ -112,7 +112,7 @@ func (instance *Instance) ReadEvent(relPath string) error {
 	event := &Event{
 		Path:     relPath,
 		Props:    props,
-		Constant: isPathInCache(relPath),
+		Constant: IsPathInCache(relPath),
 	}
 
 	instance.Events = append(instance.Events, event)
@@ -132,10 +132,10 @@ func (instance *Instance) ReadEvent(relPath string) error {
       newProps.Start = recurrence
       newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
 			instance.Events = append(instance.Events, &Event{
-				Path:     fmt.Sprintf(".rrule/%s_%d", relPath, i),
+				Path:     fmt.Sprintf(".fork/%s_%d", relPath, i),
 				Props:    newProps,
 				Constant: true,
-				Owner:    event,
+				Parent:    event,
 			})
 		}
 	}
@@ -239,8 +239,8 @@ type Event struct {
 	// Constant is true if the event should not be changed. Used for source events (cache) or the event is generated from a recurrance (RRule).
 	Constant bool
 
-	// Owner is the parent event if this event is generated from a recurrence rule. Otherwise nil.
-	Owner *Event
+	// Parent is the parent event if this event is generated from a recurrence rule. Otherwise nil.
+	Parent *Event
 }
 
 func (event *Event) GetRealPath(instance *Instance) string {
@@ -270,12 +270,7 @@ func (event *Event) Write(instance *Instance) error {
 }
 
 func (event *Event) String() string {
-	return fmt.Sprintf("%30s @ %s → %s (%s)",
-		event.Props.Summary,
-		event.Props.Start.Format(DefaultTimeLayout),
-		event.Props.End.Format(DefaultTimeLayout),
-		DurationToString(event.Props.End.Sub(event.Props.Start)),
-	)
+  return event.Path
 }
 
 type EventProperties struct {
