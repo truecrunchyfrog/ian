@@ -40,9 +40,9 @@ func DisplayCalendar(
 
 	if showWeeks {
 		output += "  "
-    if borders {
-      output += " "
-    }
+		if borders {
+			output += " "
+		}
 	}
 
 	weekdayFormat := "\033[2m"
@@ -143,12 +143,12 @@ type eventEntry struct {
 
 // possibleEntryDate returns a formatted date if it has not yet been shown (based on lastShownDate).
 func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
-  var date, year string
+	var date, year string
 
 	if current.YearDay() != lastShownDate.YearDay() || current.Year() != lastShownDate.Year() {
-    if !lastShownDate.IsZero() && current.Year() != lastShownDate.Year() {
-      year = fmt.Sprintf("\n\033[4m%s\033[24m\n", current.Format("2006"))
-    }
+		if !lastShownDate.IsZero() && current.Year() != lastShownDate.Year() {
+			year = fmt.Sprintf("\n\033[4m%s\033[24m\n", current.Format("2006"))
+		}
 		date += current.Format("_2 Jan")
 		*lastShownDate = current
 	}
@@ -277,16 +277,16 @@ func DisplayTimeline(instance *Instance, events []*Event, location *time.Locatio
 }
 
 func DisplayCalendarLegend(instance *Instance, events []*Event) string {
-  var output string
-  mentionedCals := []string{}
+	var output string
+	mentionedCals := []string{}
 
-  for _, event := range events {
-    cal := event.GetCalendarName()
-    if !slices.Contains(mentionedCals, cal) {
-      output += fmt.Sprintf(GetEventRgbAnsiSeq(event, instance, false) + "▆ %s\n", cal)
-      mentionedCals = append(mentionedCals, cal)
-    }
-  }
+	for _, event := range events {
+		cal := event.GetCalendarName()
+		if !slices.Contains(mentionedCals, cal) {
+			output += fmt.Sprintf(GetEventRgbAnsiSeq(event, instance, false)+"▆ %s\n", cal)
+			mentionedCals = append(mentionedCals, cal)
+		}
+	}
 
-  return output
+	return output
 }

@@ -167,21 +167,21 @@ func DurationToString(d time.Duration) string {
 		if days >= 5 {
 			goto end
 		}
-  }
+	}
 	if d.Hours() >= 1 {
 		parts = append(parts, fmt.Sprintf("%dh", int(d.Hours())))
 		d %= time.Hour
-  }
+	}
 	if d.Minutes() >= 1 && len(parts) < 2 {
 		parts = append(parts, fmt.Sprintf("%dm", int(d.Minutes())))
 		d %= time.Minute
-  }
+	}
 	if d.Seconds() >= 1 && len(parts) < 2 {
 		parts = append(parts, fmt.Sprintf("%ds", int(d.Seconds())))
 		d %= time.Second
-  }
+	}
 
-  end:
+end:
 	return output + strings.Join(parts, " ")
 }
 
@@ -189,16 +189,16 @@ func DurationToString(d time.Duration) string {
 // or will that complicate this further??
 
 func IsTimeWithinPeriod(t, periodStart, periodEnd time.Time) bool {
-  if periodStart.After(periodEnd) {
-    panic("periodStart is after periodEnd")
-  }
-  //        not before start                not after end
+	if periodStart.After(periodEnd) {
+		panic("periodStart is after periodEnd")
+	}
+	//        not before start                not after end
 	return t.Compare(periodStart) != -1 && t.Compare(periodEnd) != 1
 }
 
 // IsPeriodConfinedToPeriod returns true if the period start1-end1 is within start2-end2.
 func IsPeriodConfinedToPeriod(start1, end1, start2, end2 time.Time) bool {
-  return IsTimeWithinPeriod(start1, start2, end2) && IsTimeWithinPeriod(end1, start2, end2)
+	return IsTimeWithinPeriod(start1, start2, end2) && IsTimeWithinPeriod(end1, start2, end2)
 }
 
 // DoPeriodsMeet compares two periods and returns true if they collide at some point, otherwise false.

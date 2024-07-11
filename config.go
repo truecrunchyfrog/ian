@@ -75,7 +75,7 @@ func ReadConfig(root string) (Config, error) {
 			}
 
 			source.Lifetime_ = d
-      config.Sources[name] = source
+			config.Sources[name] = source
 		}
 	}
 
@@ -90,7 +90,7 @@ func ReadConfig(root string) (Config, error) {
 			}
 
 			listener.Cooldown_ = d
-      config.Sync.Listeners[name] = listener
+			config.Sync.Listeners[name] = listener
 		}
 	}
 

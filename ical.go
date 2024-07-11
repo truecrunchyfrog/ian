@@ -61,7 +61,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 				return nil, fmt.Errorf("RRule parse failure: %s", err)
 			}
 			rruleSet.RRule(rr)
-      rruleSet.DTStart(start)
+			rruleSet.DTStart(start)
 		}
 
 		if rdateString := getProp(icalEvent, ics.PropertyRdate); rdateString != "" {

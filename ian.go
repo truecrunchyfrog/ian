@@ -126,16 +126,16 @@ func (instance *Instance) ReadEvent(relPath string) error {
 		}
 		// TODO read TODO.md
 		now := time.Now()
-    recurrences := rruleSet.Between(now.AddDate(-10, 0, 0), now.AddDate(10, 0, 0), true)[1:]
+		recurrences := rruleSet.Between(now.AddDate(-10, 0, 0), now.AddDate(10, 0, 0), true)[1:]
 		for i, recurrence := range recurrences {
-      newProps := props
-      newProps.Start = recurrence
-      newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
+			newProps := props
+			newProps.Start = recurrence
+			newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
 			instance.Events = append(instance.Events, &Event{
 				Path:     fmt.Sprintf(".fork/%s_%d", relPath, i),
 				Props:    newProps,
 				Constant: true,
-				Parent:    event,
+				Parent:   event,
 			})
 		}
 	}
@@ -270,7 +270,7 @@ func (event *Event) Write(instance *Instance) error {
 }
 
 func (event *Event) String() string {
-  return event.Path
+	return event.Path
 }
 
 type EventProperties struct {

@@ -71,9 +71,9 @@ func (instance *Instance) Sync(eventInfo SyncEvent, ignoreCooldowns bool, stdout
 			}
 
 			if ready {
-        if stdout != nil {
-          stdout.Write([]byte(fmt.Sprintf("\033[2m>>> BEGIN '%s'\033[22m\n", name)))
-        }
+				if stdout != nil {
+					stdout.Write([]byte(fmt.Sprintf("\033[2m>>> BEGIN '%s'\033[22m\n", name)))
+				}
 				var cmd *exec.Cmd
 				switch runtime.GOOS {
 				case "windows":
@@ -97,9 +97,9 @@ func (instance *Instance) Sync(eventInfo SyncEvent, ignoreCooldowns bool, stdout
 				if err := cmd.Run(); err != nil {
 					log.Printf("warning: sync listener command '%s' exited unsuccessfully (%s). stderr:\n%s", name, err, buf.String())
 				}
-        if stdout != nil {
-          stdout.Write([]byte(fmt.Sprintf("\033[2m<<< END   '%s'\033[22m\n\n", name)))
-        }
+				if stdout != nil {
+					stdout.Write([]byte(fmt.Sprintf("\033[2m<<< END   '%s'\033[22m\n\n", name)))
+				}
 			}
 		}
 	}

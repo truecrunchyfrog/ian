@@ -14,7 +14,7 @@ var index int
 func init() {
   infoCmd.Flags().IntVarP(&index, "index", "i", 0, "Choose an event based on index for ambiguous results.")
 
-	rootCmd.AddCommand(infoCmd)
+	eventPropsCmd.AddCommand(infoCmd)
 }
 
 var infoCmd = &cobra.Command{

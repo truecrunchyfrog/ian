@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -27,6 +29,8 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+  onWritten := []func(){}
 
 	event, err := instance.GetEvent(args[0])
 	if err != nil {
@@ -92,11 +96,16 @@ func editCmdRun(cmd *cobra.Command, args []string) {
       log.Fatal(err)
     }
   }
-  if eventFlags.Changed(eventFlag_Calendar) { // Calendar
-    event.Path, _ = eventFlags.GetString(eventFlag_Calendar)
+  if eventFlags.Changed(eventFlag_Calendar) { // Calendar (move operation)
+    oldPath := event.GetRealPath(instance)
+    newCalendar, _ := eventFlags.GetString(eventFlag_Calendar)
+    event.Path = path.Join(newCalendar, path.Base(event.Path))
     if ian.IsPathInCache(event.Path) {
       log.Fatal("cannot set calendar to inside cache")
     }
+    onWritten = append(onWritten, func() {
+      os.Remove(oldPath)
+    })
     fmt.Println("note: event is being moved to another file location.")
   }
   if eventFlags.Changed(eventFlag_Recurrence) { // Recurrence
@@ -125,7 +134,12 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	}
   checkCollision(instance, event.Props)
 
-	event.Write(instance)
+  if err := event.Write(instance); err != nil {
+    log.Fatal(err)
+  }
+  for _, f := range onWritten {
+    f()
+  }
   fmt.Printf("'%s' has been updated; %s\n", event.Path, strings.Join(modified, ", "))
 
   instance.Sync(ian.SyncEvent{
