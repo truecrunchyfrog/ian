@@ -39,7 +39,10 @@ func DisplayCalendar(
 	firstWeekdayInMonth := time.Date(year, month, 1, 0, 0, 0, 0, location).Weekday()
 
 	if showWeeks {
-		output += strings.Repeat(" ", 3)
+		output += "  "
+    if borders {
+      output += " "
+    }
 	}
 
 	weekdayFormat := "\033[2m"
