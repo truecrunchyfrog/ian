@@ -58,6 +58,9 @@ func (i *CalendarSource) Import(name string) ([]EventProperties, error) {
 		if err != nil {
 			return nil, err
 		}
+    if resp.StatusCode != 200 {
+      return nil, fmt.Errorf("source '%s' HTTP request failed: %s", name, resp.Status)
+    }
 		defer resp.Body.Close()
 		ical, err := ics.ParseCalendar(resp.Body)
 		if err != nil {

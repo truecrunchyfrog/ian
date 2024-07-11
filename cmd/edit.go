@@ -49,9 +49,8 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	if event.Cached {
-		// TODO this will differ for dynamic calendars (CalDAV)
-		log.Fatalf("'%s' is a cached event and cannot be modified.\n", event.Path)
+	if event.Constant {
+		log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
 	}
 
 	modified := true

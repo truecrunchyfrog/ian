@@ -220,7 +220,7 @@ func displayPipes(instance *Instance, entry *eventEntry) string {
 	return strings.Join(pipes, "")
 }
 
-func DisplayTimeline(instance *Instance, periodStart, periodEnd time.Time, events []*Event, location *time.Location) string {
+func DisplayTimeline(instance *Instance, events []*Event, location *time.Location) string {
 	// Sort the events first:
 
 	slices.SortFunc(events, func(e1 *Event, e2 *Event) int {

@@ -1,9 +1,11 @@
 package ian
 
 import (
+	"fmt"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
+	"github.com/teambition/rrule-go"
 )
 
 const icalTimeLayout string = "20060102T150405Z"
@@ -36,13 +38,13 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 
 		var allDay bool
 		if start.Equal(end) {
-      allDay = true
-      var err error
-      if start, err = icalEvent.GetAllDayStartAt(); err != nil {
-        return nil, err
-      }
+			allDay = true
+			var err error
+			if start, err = icalEvent.GetAllDayStartAt(); err != nil {
+				return nil, err
+			}
 
-      end = start.AddDate(0, 0, 1).Add(-time.Second)
+			end = start.AddDate(0, 0, 1).Add(-time.Second)
 		}
 
 		summary := getProp(icalEvent, ics.PropertySummary)
@@ -50,11 +52,41 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		location := getProp(icalEvent, ics.PropertyLocation)
 		url := getProp(icalEvent, ics.PropertyUrl)
 
+		// Rrules:
+		rruleSet := rrule.Set{}
+
+		if rruleString := getProp(icalEvent, ics.PropertyRrule); rruleString != "" {
+			rr, err := rrule.StrToRRule(rruleString)
+			if err != nil {
+				return nil, fmt.Errorf("RRule parse failure: %s", err)
+			}
+			rruleSet.RRule(rr)
+      rruleSet.DTStart(start)
+		}
+
+		if rdateString := getProp(icalEvent, ics.PropertyRdate); rdateString != "" {
+			rd, err := rrule.StrToDates(rdateString)
+			if err != nil {
+				return nil, fmt.Errorf("RDate parse failure: %s", err)
+			}
+			for _, d := range rd {
+				rruleSet.RDate(d)
+			}
+		}
+
+		if exdateString := getProp(icalEvent, ics.PropertyExdate); exdateString != "" {
+			xd, err := rrule.StrToDates(exdateString)
+			if err != nil {
+				return nil, fmt.Errorf("ExDate parse failure: %s", err)
+			}
+			for _, d := range xd {
+				rruleSet.ExDate(d)
+			}
+		}
+
 		// Ignore errors for these, since they may not exist.
 		created, _ := parseIcalTime(getProp(icalEvent, ics.PropertyCreated))
 		modified, _ := parseIcalTime(getProp(icalEvent, ics.PropertyLastModified))
-
-		// TODO add more properties: Rrule, etc.
 
 		props := EventProperties{
 			Summary:     summary,
@@ -64,6 +96,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 			Start:       start,
 			End:         end,
 			AllDay:      allDay,
+			Rrule:       rruleSet.String(),
 			Created:     created,
 			Modified:    modified,
 		}

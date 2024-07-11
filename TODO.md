@@ -1,4 +1,4 @@
-* repeating events/Rrule
+* make instance.Events private and instead make a function to get events within a period, to support endless rrules
 * 'move' command to move events between containers
 * path to proper path, not filepath
 * parallel timeline item support
@@ -9,3 +9,4 @@
 * create benchmarks and tests
 * archiving
 * create busy/free system and replace the "collision" system with it
+* make showing an individual day's events easier (and a shorthand for today 'ian today' / 'ian now')

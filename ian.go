@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/teambition/rrule-go"
 )
 
 var Verbose bool
@@ -109,11 +109,36 @@ func (instance *Instance) ReadEvent(relPath string) error {
 		instance.Events = slices.Delete(instance.Events, i, i+1)
 	}
 
-	instance.Events = append(instance.Events, &Event{
-		Path:   relPath,
-		Props:  props,
-		Cached: isPathInCache(relPath),
-	})
+	event := &Event{
+		Path:     relPath,
+		Props:    props,
+		Constant: isPathInCache(relPath),
+	}
+
+	instance.Events = append(instance.Events, event)
+
+	// RRule children
+	if props.Rrule != "" {
+		rruleSet, err := rrule.StrToRRuleSet(props.Rrule)
+		if err != nil {
+			log.Println("warning: '"+path+"' has an invalid RRule property and the event was ignored:", err)
+			return nil
+		}
+		// TODO read TODO.md
+		now := time.Now()
+    recurrences := rruleSet.Between(now.AddDate(-10, 0, 0), now.AddDate(10, 0, 0), true)[1:]
+		for i, recurrence := range recurrences {
+      newProps := props
+      newProps.Start = recurrence
+      newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
+			instance.Events = append(instance.Events, &Event{
+				Path:     fmt.Sprintf(".rrule/%s_%d", relPath, i),
+				Props:    newProps,
+				Constant: true,
+				Owner:    event,
+			})
+		}
+	}
 
 	return nil
 }
@@ -211,8 +236,11 @@ type Event struct {
 	Path  string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
 	Props EventProperties
 
-	// Cached is true if the event should not be changed and is a cached event.
-	Cached bool
+	// Constant is true if the event should not be changed. Used for source events (cache) or the event is generated from a recurrance (RRule).
+	Constant bool
+
+	// Owner is the parent event if this event is generated from a recurrence rule. Otherwise nil.
+	Owner *Event
 }
 
 func (event *Event) GetRealPath(instance *Instance) string {
@@ -260,15 +288,10 @@ type EventProperties struct {
 	End    time.Time
 	AllDay bool
 
-	Recurrence RecurrenceRule
+	Rrule string
 
 	Created  time.Time
 	Modified time.Time
-}
-
-func isUrl(str string) bool {
-	u, err := url.Parse(str)
-	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
 func (p *EventProperties) Validate() error {
@@ -286,8 +309,6 @@ func (p *EventProperties) Validate() error {
 		if !p.Start.AddDate(0, 0, 1).Add(-time.Second).Equal(p.End) {
 			return errors.New("all-day event end must be exactly 24 hours minus 1 second after start")
 		}
-	case p.Url != "" && !isUrl(p.Url):
-		return errors.New("URL is invalid")
 	}
 
 	return nil
