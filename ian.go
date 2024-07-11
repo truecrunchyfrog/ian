@@ -25,13 +25,12 @@ func SanitizePath(path string) string {
 type Instance struct {
 	Root   string
 	Config Config
-	Events []*Event
 }
 
 // Work performs maintenance work and is run on every instance creation.
 // It is used to e.g. update sources.
 func (instance *Instance) Work() error {
-	if err := instance.ReadEvents(); err != nil {
+	if err := instance.readEvents(); err != nil {
 		return err
 	}
 	if err := instance.UpdateSources(); err != nil {
@@ -62,7 +61,7 @@ func (instance *Instance) CreateEvent(props EventProperties, containerDir string
 
 	event.Write(instance)
 
-	instance.ReadEvent(path)
+	instance.readEvent(path)
 
 	return &event, nil
 }
@@ -86,90 +85,70 @@ func (instance *Instance) getAvailableFilepath(originalPath string) (string, err
 	}
 }
 
-func (instance *Instance) ReadEvent(relPath string) error {
+func (instance *Instance) readEvent(relPath string, from, to time.Time) ([]Event, error) {
 	relPath = SanitizePath(relPath)
 	path := filepath.Join(instance.Root, relPath)
 
 	props, err := parseEventFile(path)
 	if err != nil {
-		log.Println("warning: parsing '"+path+"' failed and the event was ignored:", err)
-		return nil
+		return nil, err
 	}
 
 	if err := props.Validate(); err != nil {
-		log.Println("warning: '"+path+"' failed validation and the event was ignored:", err)
-		return nil
+		return nil, fmt.Errorf("failed validation: %s", err)
 	}
 
-	// Delete old version if it exists:
-	i := slices.IndexFunc(instance.Events, func(event *Event) bool {
-		return event.Path == relPath
-	})
-	if i != -1 {
-		instance.Events = slices.Delete(instance.Events, i, i+1)
+	events := []Event{
+		Event{
+			Path:     relPath,
+			Props:    props,
+			Constant: IsPathInCache(relPath),
+		},
 	}
-
-	event := &Event{
-		Path:     relPath,
-		Props:    props,
-		Constant: IsPathInCache(relPath),
-	}
-
-	instance.Events = append(instance.Events, event)
 
 	// RRule children
 	if props.Rrule != "" {
 		rruleSet, err := rrule.StrToRRuleSet(props.Rrule)
 		if err != nil {
 			log.Println("warning: '"+path+"' has an invalid RRule property and the event was ignored:", err)
-			return nil
+			return nil, nil
 		}
-		// TODO read TODO.md
-		now := time.Now()
-		recurrences := rruleSet.Between(now.AddDate(-10, 0, 0), now.AddDate(10, 0, 0), true)[1:]
-		for i, recurrence := range recurrences {
-			newProps := props
-			newProps.Start = recurrence
-			newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
-			instance.Events = append(instance.Events, &Event{
-				Path:     fmt.Sprintf(".fork/%s_%d", relPath, i),
-				Props:    newProps,
-				Constant: true,
-				Parent:   event,
-			})
+		recurrences := rruleSet.Between(from, to, true)
+		if len(recurrences) > 0 {
+			for i, recurrence := range recurrences[1:] {
+				newProps := props
+				newProps.Start = recurrence
+				newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
+				events = append(events, Event{
+					Path:     fmt.Sprintf(".fork/%s_%d", relPath, i),
+					Props:    newProps,
+					Constant: true,
+					Parent:   &events[0],
+				})
+			}
 		}
 	}
 
-	return nil
+	return events, nil
 }
 
-// ReadEvents reads and parses all events in the instance directory (recursively).
-// Dotfiles are ignored.
-func (instance *Instance) ReadEvents() error {
-	instance.Events = []*Event{}
-
-	if err := instance.readDir(instance.Root); err != nil {
-		return err
-	}
-
-	return nil
+func (instance *Instance) readEvents() ([]Event, error) {
+	return instance.readDir(instance.Root)
 }
 
-func (instance *Instance) readDir(dir string) error {
-	// Ignore dot directories, like '.git'.
-	if dir != instance.Root && strings.HasPrefix(filepath.Base(dir), ".") {
-		return nil
-	}
-
+func (instance *Instance) readDir(dir string) ([]Event, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, entry := range entries {
 		path := filepath.Join(dir, entry.Name())
 		if entry.IsDir() {
-			instance.readDir(path)
+			// Ignore dot directories and their contents, like '.git'.
+			if !strings.HasPrefix(filepath.Base(dir), ".") {
+				instance.readDir(path)
+			}
 			continue
 		}
 		// Ignore dotfiles
@@ -182,7 +161,7 @@ func (instance *Instance) readDir(dir string) error {
 			continue
 		}
 
-		instance.ReadEvent(relPath)
+		instance.readEvent(relPath)
 	}
 
 	return nil

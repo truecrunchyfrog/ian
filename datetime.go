@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+type TimeRange struct {
+  From, To time.Time
+}
+
 const DefaultTimeLayout string = "_2 Jan 15:04 MST 2006"
 
 var formats []string = []string{
