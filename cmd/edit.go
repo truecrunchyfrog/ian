@@ -144,7 +144,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatalf("verification failed: %s", err)
 	}
 
-  events2, err := instance.ReadEvents(ian.TimeRange{From: event.Props.Start, To: event.Props.End})
+  events2, err := instance.ReadEvents(event.Props.GetTimeRange())
   if err != nil {
     log.Fatal(err)
   }

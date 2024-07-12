@@ -71,6 +71,13 @@ type EventProperties struct {
 	Modified time.Time
 }
 
+func (props *EventProperties) GetTimeRange() TimeRange {
+	return TimeRange{
+		From: props.Start,
+		To:   props.End,
+	}
+}
+
 func (p *EventProperties) Validate() error {
 	switch {
 	case p.Summary == "":

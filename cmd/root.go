@@ -70,7 +70,7 @@ func GetTimeZone() *time.Location {
 func checkCollision(events *[]ian.Event, props ian.EventProperties) {
 	if !ignoreCollisionWarnings || noCollision {
 		collidingEvents := ian.FilterEvents(events, func(e *ian.Event) bool {
-			return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.Start, props.End, e.Props.Start, e.Props.End)
+			return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.GetTimeRange(), e.Props.GetTimeRange())
 		})
 
 		if !ignoreCollisionWarnings {
@@ -186,23 +186,23 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	var monthStart time.Time
+  var monthRange ian.TimeRange
 	if month != int(now.Month()) || viper.GetBool("past") {
-		monthStart = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
+		monthRange.From = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
 	} else {
-		monthStart = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
+		monthRange.From = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
 	}
-	monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Second)
+	monthRange.To = monthRange.From.AddDate(0, 1, 0).Add(-time.Second)
 
 	var events []ian.Event
 
 	if !emptyCalendar {
-		events, err = instance.ReadEvents(ian.TimeRange{From: monthStart, To: monthEnd})
+		events, err = instance.ReadEvents(monthRange)
     if err != nil {
       log.Fatal(err)
     }
 		events = ian.FilterEvents(&events, func(e *ian.Event) bool {
-			return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, monthStart, monthEnd)
+			return ian.DoPeriodsMeet(e.Props.GetTimeRange(), monthRange)
 		})
 	}
 
@@ -221,11 +221,12 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 				return "\033[44m", true
 			}
 			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
-				dayStart := time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
-				dayEnd := dayStart.AddDate(0, 0, 1).Add(-time.Second)
+        var dayRange ian.TimeRange
+        dayRange.From = time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
+        dayRange.To = dayRange.From.AddDate(0, 0, 1).Add(-time.Second)
 				eventsInDay := []*ian.Event{}
 				for _, event := range events {
-					if ian.DoPeriodsMeet(event.Props.Start, event.Props.End, dayStart, dayEnd) {
+					if ian.DoPeriodsMeet(event.Props.GetTimeRange(), dayRange) {
 						eventsInDay = append(eventsInDay, &event)
 					}
 				}

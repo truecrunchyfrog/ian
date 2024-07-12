@@ -10,49 +10,45 @@ func TestIsTimeWithinPeriod(t *testing.T) {
 
 	var tests = []struct {
 		name          string
-		start, t, end time.Time
+    t time.Time
+    p TimeRange
 		want          bool
 	}{
 		{
 			"before",
-			r.Add(5),
 			r.Add(3),
-			r.Add(10),
+			TimeRange{r.Add(5), r.Add(10)},
 			false,
 		},
 		{
 			"after",
-			r.Add(0),
 			r.Add(11),
-			r.Add(10),
+			TimeRange{r.Add(0), r.Add(10)},
 			false,
 		},
 		{
 			"inside",
-			r.Add(0),
 			r.Add(5),
-			r.Add(10),
+			TimeRange{r.Add(0), r.Add(10)},
 			true,
 		},
 		{
 			"on start border",
 			r.Add(5),
-			r.Add(5),
-			r.Add(10),
+			TimeRange{r.Add(5), r.Add(10)},
 			true,
 		},
 		{
 			"on end border",
-			r.Add(0),
 			r.Add(5),
-			r.Add(5),
+			TimeRange{r.Add(0), r.Add(5)},
 			true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ans := IsTimeWithinPeriod(tt.t, tt.start, tt.end)
+			ans := IsTimeWithinPeriod(tt.t, tt.p)
 			if ans != tt.want {
 				t.Errorf("got %v, want %v", ans, tt.want)
 			}
@@ -65,7 +61,7 @@ func TestDoPeriodsMeet(t *testing.T) {
 
 	var tests = []struct {
 		name           string
-		s1, e1, s2, e2 time.Time
+    p1, p2 TimeRange
 		want           bool
 	}{
 		{
@@ -73,10 +69,8 @@ func TestDoPeriodsMeet(t *testing.T) {
 			//    s2222e
 
 			"meet in middle",
-			r.Add(0),
-			r.Add(10),
-			r.Add(5),
-			r.Add(20),
+      TimeRange{r.Add(0), r.Add(10)},
+      TimeRange{r.Add(5), r.Add(20)},
 			true,
 		},
 		{
@@ -84,10 +78,8 @@ func TestDoPeriodsMeet(t *testing.T) {
 			//       s2222e
 
 			"barely touch",
-			r.Add(0),
-			r.Add(1),
-			r.Add(2),
-			r.Add(3),
+			TimeRange{r.Add(0), r.Add(1)},
+			TimeRange{r.Add(2), r.Add(3)},
 			false,
 		},
 		{
@@ -95,10 +87,8 @@ func TestDoPeriodsMeet(t *testing.T) {
 			//      s2222e
 
 			"edge 1",
-			r.Add(0),
-			r.Add(1),
-			r.Add(2),
-			r.Add(3),
+			TimeRange{r.Add(0), r.Add(1)},
+			TimeRange{r.Add(2), r.Add(3)},
 			true,
 		},
 		{
@@ -106,10 +96,8 @@ func TestDoPeriodsMeet(t *testing.T) {
 			// s2222e
 
 			"edge 2",
-			r.Add(2),
-			r.Add(3),
-			r.Add(0),
-			r.Add(1),
+			TimeRange{r.Add(2), r.Add(3)},
+			TimeRange{r.Add(0), r.Add(1)},
 			true,
 		},
 		{
@@ -117,10 +105,8 @@ func TestDoPeriodsMeet(t *testing.T) {
 			// s2222e
 
 			"distant",
-			r.Add(2),
-			r.Add(3),
-			r.Add(0),
-			r.Add(1),
+			TimeRange{r.Add(2), r.Add(3)},
+			TimeRange{r.Add(0), r.Add(1)},
 			false,
 		},
 		{
@@ -128,10 +114,8 @@ func TestDoPeriodsMeet(t *testing.T) {
 			// s2222e
 
 			"big and small touch",
-			r.Add(3),
-			r.Add(500),
-			r.Add(0),
-			r.Add(5),
+			TimeRange{r.Add(3), r.Add(500)},
+			TimeRange{r.Add(0), r.Add(5)},
 			true,
 		},
 		{
@@ -139,17 +123,15 @@ func TestDoPeriodsMeet(t *testing.T) {
 			// s2222e
 
 			"parallel",
-			r.Add(0),
-			r.Add(1),
-			r.Add(0),
-			r.Add(1),
+			TimeRange{r.Add(0), r.Add(1)},
+			TimeRange{r.Add(0), r.Add(1)},
 			true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ans := DoPeriodsMeet(tt.s1, tt.e1, tt.s2, tt.e2)
+			ans := DoPeriodsMeet(tt.p1, tt.p2)
 			if ans != tt.want {
 				t.Errorf("got %v, want %v", ans, tt.want)
 			}

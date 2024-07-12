@@ -11,6 +11,10 @@ type TimeRange struct {
 	From, To time.Time
 }
 
+func (tr *TimeRange) IsZero() bool {
+  return tr.From.IsZero() && tr.To.IsZero()
+}
+
 const DefaultTimeLayout string = "_2 Jan 15:04 MST 2006"
 
 var formats []string = []string{
@@ -120,6 +124,7 @@ var formats []string = []string{
 }
 
 var timeFormats []string = []string{
+	"15",
 	"15:04",
 	"3:04PM",
 }
@@ -189,27 +194,22 @@ end:
 	return output + strings.Join(parts, " ")
 }
 
-// TODO consider changing this whole -1 second from end thing to just not include the edge case,
-// or will that complicate this further??
-
-func IsTimeWithinPeriod(t, periodStart, periodEnd time.Time) bool {
-	if periodStart.After(periodEnd) {
-		panic("periodStart is after periodEnd")
+func IsTimeWithinPeriod(t time.Time, period TimeRange) bool {
+	if period.From.After(period.To) {
+		panic("invalid timerange")
 	}
-	//        not before start                not after end
-	return t.Compare(periodStart) != -1 && t.Compare(periodEnd) != 1
+	return t.Compare(period.From) != -1 && t.Compare(period.To) != 1
 }
 
-// IsPeriodConfinedToPeriod returns true if the period start1-end1 is within start2-end2.
-func IsPeriodConfinedToPeriod(start1, end1, start2, end2 time.Time) bool {
-	return IsTimeWithinPeriod(start1, start2, end2) && IsTimeWithinPeriod(end1, start2, end2)
+// IsPeriodConfinedToPeriod returns true if period1 start and end is within period2.
+func IsPeriodConfinedToPeriod(period1, period2 TimeRange) bool {
+	return IsTimeWithinPeriod(period1.From, period2) && IsTimeWithinPeriod(period1.To, period2)
 }
 
 // DoPeriodsMeet compares two periods and returns true if they collide at some point, otherwise false.
-// start1 must not come after end1, and start2 must not come after end2.
-func DoPeriodsMeet(start1, end1, start2, end2 time.Time) bool {
-	return IsTimeWithinPeriod(start1, start2, end2) ||
-		IsTimeWithinPeriod(end1, start2, end2) ||
-		IsTimeWithinPeriod(start2, start1, end1) ||
-		IsTimeWithinPeriod(end2, start1, end1)
+func DoPeriodsMeet(period1, period2 TimeRange) bool {
+	return IsTimeWithinPeriod(period1.From, period2) ||
+		IsTimeWithinPeriod(period1.To, period2) ||
+		IsTimeWithinPeriod(period2.From, period1) ||
+		IsTimeWithinPeriod(period2.To, period1)
 }

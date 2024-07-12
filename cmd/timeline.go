@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/truecrunchyfrog/ian"
@@ -31,10 +30,7 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	timeRange := ian.TimeRange{
-		From: time.Time{},
-		To:   time.Now().AddDate(5, 0, 0),
-	}
+  var timeRange ian.TimeRange
 
 	if len(args) >= 1 {
 		timeRange.From, err = ian.ParseDateTime(args[0], GetTimeZone())
@@ -51,9 +47,6 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
 	}
 
   events, _ := instance.ReadEvents(timeRange)
-	events = ian.FilterEvents(&events, func(event *ian.Event) bool {
-		return ian.IsPeriodConfinedToPeriod(event.Props.Start, event.Props.End, timeRange.From, timeRange.To)
-	})
 
 	fmt.Println(ian.DisplayTimeline(instance, events, GetTimeZone()))
 

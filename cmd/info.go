@@ -42,7 +42,7 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
 		for i, match := range matches {
 			fmt.Printf("[%d] %s\n", i+1, match.Path)
 		}
-    fmt.Println("\nappend '-i n' to the command to show info for result n.")
+    fmt.Println("\nappend '-i N' to the command to show info for result n.")
 	default:
     if index < 0 || index > len(matches) {
       log.Fatalf("cannot use index '%d' on search with '%d' result(s)\n", index, len(matches))

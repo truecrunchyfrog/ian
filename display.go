@@ -251,13 +251,10 @@ func DisplayTimeline(instance *Instance, events []Event, location *time.Location
 	}
 
 	for _, event := range events {
-		start := event.Props.Start.In(location)
-		end := event.Props.End.In(location)
-
 		cursor := &rootEntry
 		for len(cursor.children) > 0 {
 			lastChild := cursor.children[len(cursor.children)-1]
-			if !IsPeriodConfinedToPeriod(start, end, lastChild.event.Props.Start, lastChild.event.Props.End) {
+			if !IsPeriodConfinedToPeriod(event.Props.GetTimeRange(), lastChild.event.Props.GetTimeRange()) {
 				break
 			}
 			cursor = lastChild

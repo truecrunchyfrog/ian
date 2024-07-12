@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/teambition/rrule-go"
 )
@@ -71,60 +72,94 @@ func (instance *Instance) getAvailableFilepath(originalPath string) (string, err
 	}
 }
 
-func (instance *Instance) readEvent(relPath string, recurrenceTimeRange TimeRange) ([]Event, error) {
+func (instance *Instance) readEvent(relPath string) (Event, error) {
 	relPath = SanitizePath(relPath)
 	path := filepath.Join(instance.Root, relPath)
 
 	props, err := parseEventFile(path)
 	if err != nil {
-		return nil, err
+		return Event{}, err
 	}
 
 	if err := props.Validate(); err != nil {
-		return nil, fmt.Errorf("failed validation: %s", err)
+		return Event{}, fmt.Errorf("failed validation: %s", err)
 	}
 
-	events := []Event{
-		{
-			Path:     relPath,
-			Props:    props,
-			Constant: IsPathInCache(relPath),
-		},
+	return Event{
+		Path:     relPath,
+		Props:    props,
+		Constant: IsPathInCache(relPath),
+	}, nil
+}
+
+// ReadEvents reads all events in the instance during the time range, and parses their recurrences.
+// If the time range is empty (From.IsZero() && To.IsZero()), then all events are shown,
+// and recurrences are shown within the range of the normal events.
+func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, error) {
+	events, err := instance.readDir(instance.Root)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// RRule children
-	if props.Rrule != "" {
-		rruleSet, err := rrule.StrToRRuleSet(props.Rrule)
-		if err != nil {
-			log.Println("warning: '"+path+"' has an invalid RRule property and the event was ignored:", err)
-			return nil, nil
+	var earliestStart, latestEnd time.Time
+
+	for _, event := range events {
+		if earliestStart.IsZero() || earliestStart.After(event.Props.Start) {
+			earliestStart = event.Props.Start
 		}
-		recurrences := rruleSet.Between(recurrenceTimeRange.From, recurrenceTimeRange.To, true)
-		if len(recurrences) > 0 {
-			for i, recurrence := range recurrences[1:] {
-				newProps := props
-				newProps.Start = recurrence
-				newProps.End = newProps.Start.Add(props.End.Sub(props.Start))
-				events = append(events, Event{
-					Path:     fmt.Sprintf(".fork/%s_%d", relPath, i),
-					Props:    newProps,
-					Constant: true,
-					Parent:   &events[0],
-				})
+		if latestEnd.IsZero() || latestEnd.Before(event.Props.End) {
+			latestEnd = event.Props.End
+		}
+	}
+
+  unsatisfiedRecurrences := []*Event{}
+
+	recurrenceRange := timeRange
+	if recurrenceRange.IsZero() {
+		recurrenceRange.From = earliestStart
+		recurrenceRange.To = latestEnd
+	}
+	for _, event := range events {
+		if event.Props.Rrule != "" {
+			rruleSet, err := rrule.StrToRRuleSet(event.Props.Rrule)
+			if err != nil {
+				log.Printf("warning: '%s' has an invalid RRule property and recurrences were ignored: %s\n", event.Path, err)
+				continue
 			}
+			recurrences := rruleSet.Between(recurrenceRange.From, recurrenceRange.To, true)
+			if len(recurrences) > 0 {
+        recurrences = recurrences[1:] // Ignore the first one because it already exists.
+				for i, recurrence := range recurrences {
+					newProps := event.Props
+					newProps.Start = recurrence
+					newProps.End = newProps.Start.Add(event.Props.End.Sub(event.Props.Start))
+					events = append(events, Event{
+						Path:        fmt.Sprintf(".fork/%s_%d", event.Path, i),
+						Props:       newProps,
+						Constant:    true,
+						Parent:      &event,
+					})
+				}
+			}
+      if timeRange.IsZero() && (!rruleSet.Before(recurrenceRange.From, false).IsZero() || !rruleSet.After(recurrenceRange.To, false).IsZero()) {
+        unsatisfiedRecurrences = append(unsatisfiedRecurrences, &event)
+      }
 		}
 	}
 
-	return events, nil
+	// Don't delete the events until now, because in the case of a recurring event
+	// that is outside the time range, but has children inside the time range.
+	if !timeRange.IsZero() {
+		events = FilterEvents(&events, func(e *Event) bool {
+			return IsPeriodConfinedToPeriod(e.Props.GetTimeRange(), timeRange)
+		})
+	}
+
+	return events, unsatisfiedRecurrences, nil
 }
 
-// ReadEvents reads all events in the instance. Recurring events (via rrule) will be limited to the bounds of recurrenceTimeRange.
-// Normal events will not be filtered by recurrenceTimeRange.
-func (instance *Instance) ReadEvents(recurrenceTimeRange TimeRange) ([]Event, error) {
-	return instance.readDir(instance.Root, recurrenceTimeRange)
-}
-
-func (instance *Instance) readDir(dir string, recurrenceTimeRange TimeRange) ([]Event, error) {
+// readDir reads a directory's events and directories recursively.
+func (instance *Instance) readDir(dir string) ([]Event, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -139,11 +174,11 @@ func (instance *Instance) readDir(dir string, recurrenceTimeRange TimeRange) ([]
 			continue
 		}
 		if entry.IsDir() {
-      evs, err := instance.readDir(path, recurrenceTimeRange)
-      if err != nil {
-        return nil, err
-      }
-      events = append(events, evs...)
+			evs, err := instance.readDir(path)
+			if err != nil {
+				return nil, err
+			}
+			events = append(events, evs...)
 			continue
 		}
 		relPath, err := filepath.Rel(instance.Root, path)
@@ -152,12 +187,12 @@ func (instance *Instance) readDir(dir string, recurrenceTimeRange TimeRange) ([]
 			continue
 		}
 
-		evs, err := instance.readEvent(relPath, recurrenceTimeRange)
+		event, err := instance.readEvent(relPath)
 		if err != nil {
 			log.Printf("warning: event '%s' failed and the event was ignored: %s\n", path, err)
 			continue
 		}
-		events = append(events, evs...)
+		events = append(events, event)
 	}
 
 	return events, nil
