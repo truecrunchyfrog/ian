@@ -220,10 +220,10 @@ func displayPipes(instance *Instance, entry *eventEntry) string {
 	return strings.Join(pipes, "")
 }
 
-func DisplayTimeline(instance *Instance, events []*Event, location *time.Location) string {
+func DisplayTimeline(instance *Instance, events []Event, location *time.Location) string {
 	// Sort the events first:
 
-	slices.SortFunc(events, func(e1 *Event, e2 *Event) int {
+	slices.SortFunc(events, func(e1 Event, e2 Event) int {
 		if s := e1.Props.Start.Compare(e2.Props.Start); s != 0 {
 			return s
 		} else {
@@ -264,7 +264,7 @@ func DisplayTimeline(instance *Instance, events []*Event, location *time.Locatio
 		}
 
 		cursor.children = append(cursor.children, &eventEntry{
-			event:    event,
+			event:    &event,
 			parent:   cursor,
 			children: []*eventEntry{},
 		})
@@ -276,14 +276,14 @@ func DisplayTimeline(instance *Instance, events []*Event, location *time.Locatio
 	return displayEntry(instance, &rootEntry, &lastShownDate, location)
 }
 
-func DisplayCalendarLegend(instance *Instance, events []*Event) string {
+func DisplayCalendarLegend(instance *Instance, events []Event) string {
 	var output string
 	mentionedCals := []string{}
 
 	for _, event := range events {
 		cal := event.GetCalendarName()
 		if !slices.Contains(mentionedCals, cal) {
-			output += fmt.Sprintf(GetEventRgbAnsiSeq(event, instance, false)+"▆ %s\n", cal)
+			output += fmt.Sprintf(GetEventRgbAnsiSeq(&event, instance, false)+"▆ %s\n", cal)
 			mentionedCals = append(mentionedCals, cal)
 		}
 	}

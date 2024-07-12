@@ -18,28 +18,39 @@ func init() {
 }
 
 var editCmd = &cobra.Command{
-	Use:   "edit <path>",
+	Use:   "edit <event>",
 	Short: "Edit an event's properties",
 	Args:  cobra.ExactArgs(1),
 	Run:   editCmdRun,
 }
 
 func editCmdRun(cmd *cobra.Command, args []string) {
-	instance, err := ian.CreateInstance(GetRoot(), true)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-  onWritten := []func(){}
+  events, err := instance.ReadEvents(ian.TimeRange{})
+  if err != nil {
+    log.Fatal(err)
+  }
 
-	event, err := instance.GetEvent(args[0])
-	if err != nil {
-		log.Fatal(err)
-	}
+  matches := ian.QueryEvents(&events, args[0])
+
+  if len(matches) == 0 {
+    log.Fatal("no such event")
+  }
+  if len(matches) > 1 {
+    log.Fatal("ambiguous event")
+  }
+
+  event := matches[0]
 
 	if event.Constant {
 		log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
 	}
+
+  onWritten := []func(){}
 
   flags := []string {
     eventFlag_Summary,
@@ -132,7 +143,13 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	if err := event.Props.Validate(); err != nil {
 		log.Fatalf("verification failed: %s", err)
 	}
-  checkCollision(instance, event.Props)
+
+  events2, err := instance.ReadEvents(ian.TimeRange{From: event.Props.Start, To: event.Props.End})
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  checkCollision(&events2, event.Props)
 
   if err := event.Write(instance); err != nil {
     log.Fatal(err)

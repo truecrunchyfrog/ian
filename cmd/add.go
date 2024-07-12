@@ -97,7 +97,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		recurrence = rruleSet.String()
 	}
 
-	now := time.Now()
+	now := time.Now().In(GetTimeZone())
 
 	props := ian.EventProperties{
 		Summary:     summary,
@@ -116,12 +116,14 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("invalid event: ", err)
 	}
 
-	instance, err := ian.CreateInstance(GetRoot(), true)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	checkCollision(instance, props)
+  events, _ := instance.ReadEvents(ian.TimeRange{From: startDate, To: endDate})
+
+	checkCollision(&events, props)
 
 	event, err := instance.CreateEvent(props, calendar)
 	if err != nil {

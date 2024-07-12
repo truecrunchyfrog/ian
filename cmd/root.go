@@ -67,9 +67,9 @@ func GetTimeZone() *time.Location {
 	return TimeZone
 }
 
-func checkCollision(instance *ian.Instance, props ian.EventProperties) {
+func checkCollision(events *[]ian.Event, props ian.EventProperties) {
 	if !ignoreCollisionWarnings || noCollision {
-		collidingEvents := instance.FilterEvents(func(e *ian.Event) bool {
+		collidingEvents := ian.FilterEvents(events, func(e *ian.Event) bool {
 			return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.Start, props.End, e.Props.Start, e.Props.End)
 		})
 
@@ -119,7 +119,7 @@ func init() {
 	rootCmd.Flags().Bool("borders", false, "Show week/weekday borders.")
 	rootCmd.Flags().Uint("daywidth", 3, "Width per calendar day in character length.")
 	rootCmd.Flags().BoolP("past", "p", false, "Include past events in the timeline.")
-  rootCmd.Flags().Bool("no-legend", false, "Do not show the calendar legend that shows what colors belong to what calendar.")
+	rootCmd.Flags().Bool("no-legend", false, "Do not show the calendar legend that shows what colors belong to what calendar.")
 	viper.BindPFlag("sunday", rootCmd.Flags().Lookup("sunday"))
 	viper.BindPFlag("weeks", rootCmd.Flags().Lookup("weeks"))
 	viper.BindPFlag("no-timeline", rootCmd.Flags().Lookup("no-timeline"))
@@ -181,7 +181,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	instance, err := ian.CreateInstance(GetRoot(), !emptyCalendar)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -194,9 +194,17 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	}
 	monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Second)
 
-	events := instance.FilterEvents(func(e *ian.Event) bool {
-		return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, monthStart, monthEnd)
-	})
+	var events []ian.Event
+
+	if !emptyCalendar {
+		events, err = instance.ReadEvents(ian.TimeRange{From: monthStart, To: monthEnd})
+    if err != nil {
+      log.Fatal(err)
+    }
+		events = ian.FilterEvents(&events, func(e *ian.Event) bool {
+			return ian.DoPeriodsMeet(e.Props.Start, e.Props.End, monthStart, monthEnd)
+		})
+	}
 
 	fmt.Println(ian.DisplayCalendar(
 		GetTimeZone(),
@@ -215,32 +223,32 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
 				dayStart := time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
 				dayEnd := dayStart.AddDate(0, 0, 1).Add(-time.Second)
-        eventsInDay := []*ian.Event{}
-        for _, event := range events {
-          if ian.DoPeriodsMeet(event.Props.Start, event.Props.End, dayStart, dayEnd) {
-            eventsInDay = append(eventsInDay, event)
-          }
-        }
+				eventsInDay := []*ian.Event{}
+				for _, event := range events {
+					if ian.DoPeriodsMeet(event.Props.Start, event.Props.End, dayStart, dayEnd) {
+						eventsInDay = append(eventsInDay, &event)
+					}
+				}
 				switch {
 				case len(eventsInDay) == 1:
 					return ian.GetEventRgbAnsiSeq(eventsInDay[0], instance, false), false
 				case len(eventsInDay) > 1:
-          sameCalendar := true
-          var calendar string
-          for _, event := range eventsInDay {
-            if calendar == "" {
-              calendar = event.GetCalendarName()
-              continue
-            }
+					sameCalendar := true
+					var calendar string
+					for _, event := range eventsInDay {
+						if calendar == "" {
+							calendar = event.GetCalendarName()
+							continue
+						}
 
-            if calendar != event.GetCalendarName() {
-              sameCalendar = false
-              break
-            }
-          }
-          if sameCalendar {
-            return ian.GetEventRgbAnsiSeq(eventsInDay[0], instance, false) + "\033[4m", false
-          }
+						if calendar != event.GetCalendarName() {
+							sameCalendar = false
+							break
+						}
+					}
+					if sameCalendar {
+						return ian.GetEventRgbAnsiSeq(eventsInDay[0], instance, false) + "\033[4m", false
+					}
 					return "\033[4m", false
 				default:
 					return "\033[2m", false

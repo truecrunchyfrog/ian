@@ -28,7 +28,7 @@ var syncCmd = &cobra.Command{
 }
 
 func syncCmdRun(cmd *cobra.Command, args []string) {
-	instance, err := ian.CreateInstance(GetRoot(), false)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}

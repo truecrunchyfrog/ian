@@ -30,7 +30,7 @@ var sourcesCmd = &cobra.Command{
 }
 
 func sourcesCmdRun(cmd *cobra.Command, args []string) {
-	instance, err := ian.CreateInstance(GetRoot(), false)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -14,22 +14,33 @@ func init() {
 }
 
 var deleteCmd = &cobra.Command{
-	Use:   "rm <path>",
+	Use:   "rm <event>",
 	Short: "Delete an event",
 	Args:  cobra.ExactArgs(1),
 	Run:   deleteCmdRun,
 }
 
 func deleteCmdRun(cmd *cobra.Command, args []string) {
-  instance, err := ian.CreateInstance(GetRoot(), true)
+  instance, err := ian.CreateInstance(GetRoot())
   if err != nil {
     log.Fatal(err)
   }
 
-  event, err := instance.GetEvent(args[0])
+  events, err := instance.ReadEvents(ian.TimeRange{})
   if err != nil {
     log.Fatal(err)
   }
+
+  matches := ian.QueryEvents(&events, args[0])
+
+  if len(matches) == 0 {
+    log.Fatal("no such event")
+  }
+  if len(matches) > 1 {
+    log.Fatal("ambiguous event")
+  }
+
+  event := matches[0]
 
   if event.Constant {
     log.Fatalf("'%s' is a constant event and cannot be deleted by itself.\n", event.Path)

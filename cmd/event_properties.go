@@ -23,6 +23,7 @@ const eventFlag_Hours = "hours"
 
 var eventPropsCmd = &cobra.Command{
 	Use: "event",
+  Aliases: []string{"ev"},
 }
 var eventFlags = eventPropsCmd.PersistentFlags()
 

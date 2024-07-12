@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/truecrunchyfrog/ian"
@@ -18,26 +17,22 @@ func init() {
 }
 
 var infoCmd = &cobra.Command{
-	Use:   "info <query>",
+	Use:   "info <event>",
 	Short: "View event info",
 	Args:  cobra.ExactArgs(1),
 	Run:   infoCmdRun,
 }
 
 func infoCmdRun(cmd *cobra.Command, args []string) {
-	instance, err := ian.CreateInstance(GetRoot(), true)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	query := args[0]
-	var matches []*ian.Event
+  events, err := instance.ReadEvents(ian.TimeRange{})
 
-	for _, ev := range instance.Events {
-		if strings.Contains(ev.Path, query) || strings.Contains(ev.Props.Summary, query) || strings.Contains(ev.Props.Description, query) {
-			matches = append(matches, ev)
-		}
-	}
+	query := args[0]
+  matches := ian.QueryEvents(&events, query)
 
 	switch {
 	case len(matches) < 1:

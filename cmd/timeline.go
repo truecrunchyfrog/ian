@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,41 +18,42 @@ func init() {
 }
 
 var timelineCmd = &cobra.Command{
-	Use:   "timeline [<from> [to]]",
+	Use:   "timeline [from [to]]",
 	Short: "View events in a timeline",
+  Long: "View all events in a visual timeline. 'from' defaults to year 0. 'to' defaults to 5 years ahead in time.",
 	Args:  cobra.RangeArgs(0, 2),
 	Run:   timelineCmdRun,
 }
 
 func timelineCmdRun(cmd *cobra.Command, args []string) {
-	instance, err := ian.CreateInstance(GetRoot(), true)
+	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	events := slices.Clone(instance.Events)
+	timeRange := ian.TimeRange{
+		From: time.Time{},
+		To:   time.Now().AddDate(5, 0, 0),
+	}
 
 	if len(args) >= 1 {
-		var from, to time.Time
-
-		from, err = ian.ParseDateTime(args[0], GetTimeZone())
+		timeRange.From, err = ian.ParseDateTime(args[0], GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
-		if len(args) >= 2 {
-			to, err = ian.ParseDateTime(args[1], GetTimeZone())
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-    events = slices.DeleteFunc(events, func(event *ian.Event) bool {
-      if to.IsZero() {
-        return event.Props.Start.Before(from)
-      }
-      return !ian.IsPeriodConfinedToPeriod(event.Props.Start, event.Props.End, from, to)
-    })
 	}
+
+	if len(args) >= 2 {
+		timeRange.To, err = ian.ParseDateTime(args[1], GetTimeZone())
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+  events, _ := instance.ReadEvents(timeRange)
+	events = ian.FilterEvents(&events, func(event *ian.Event) bool {
+		return ian.IsPeriodConfinedToPeriod(event.Props.Start, event.Props.End, timeRange.From, timeRange.To)
+	})
 
 	fmt.Println(ian.DisplayTimeline(instance, events, GetTimeZone()))
 
