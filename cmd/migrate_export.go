@@ -111,14 +111,18 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 		eventsByCal := map[string][]ian.Event{}
 
 		for _, event := range events {
-			calEvents := eventsByCal[event.GetCalendarName()]
+      cal := event.GetCalendarName()
+			calEvents := eventsByCal[cal]
 			if calEvents == nil {
 				calEvents = []ian.Event{}
 			}
-			calEvents = append(calEvents, event)
+      eventsByCal[cal] = append(calEvents, event)
 		}
 
 		for cal, events := range eventsByCal {
+      if cal == "." {
+        cal = "main"
+      }
 			filename := strings.NewReplacer(
 				"-", "",
 				"/", "-",
