@@ -8,6 +8,7 @@ import (
 
 func main() {
 	log.SetFlags(0)
+  log.SetPrefix("ian: ")
 
 	cmd.Execute()
 }

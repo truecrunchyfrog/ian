@@ -6,7 +6,7 @@ import (
 )
 
 func TestMigrateToThenFromIcal(t *testing.T) {
-	now := time.Now().Truncate(time.Second)
+	now := time.Now().In(time.UTC).Truncate(time.Second)
 
 	props := EventProperties{
 		Uid:         GenerateUid(),
@@ -17,9 +17,11 @@ func TestMigrateToThenFromIcal(t *testing.T) {
 		Start:       now,
 		End:         now.Add(5 * time.Hour),
 		AllDay:      false,
-		Rrule:       "RRULE:FREQ=DAILY;INTERVAL=3;COUNT=12",
-		Created:     now,
-		Modified:    now,
+		Recurrence: Recurrence{
+			RRule:  "FREQ=DAILY;INTERVAL=3;COUNT=12",
+		},
+		Created:  now,
+		Modified: now,
 	}
 
 	events := []Event{

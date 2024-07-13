@@ -14,15 +14,22 @@ import (
 	"github.com/teambition/rrule-go"
 )
 
+type EventType int
+
+const (
+  EventTypeNormal EventType = 1 << iota
+  EventTypeCache
+  EventTypeRecurrence
+)
+
 type Event struct {
 	// Path to event file relative to root.
 	// Use `filepath.Rel(root, filename)`.
 	Path  string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
 	Props EventProperties
-
+  Type EventType
 	// Constant is true if the event should not be changed. Used for source events (cache) or the event is generated from a recurrance (RRule).
 	Constant bool
-
 	// Parent is the parent event if this event is generated from a recurrence rule. Otherwise nil.
 	Parent *Event
 }

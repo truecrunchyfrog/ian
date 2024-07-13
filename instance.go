@@ -84,10 +84,17 @@ func (instance *Instance) readEvent(relPath string) (Event, error) {
 		return Event{}, fmt.Errorf("failed validation: %s", err)
 	}
 
+	eType := EventTypeNormal
+
+	if IsPathInCache(relPath) {
+		eType = EventTypeCache
+	}
+
 	return Event{
 		Path:     relPath,
 		Props:    props,
-		Constant: IsPathInCache(relPath),
+		Type:     eType,
+		Constant: eType == EventTypeCache,
 	}, nil
 }
 
@@ -135,6 +142,7 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 					events = append(events, Event{
 						Path:     fmt.Sprintf("%s_%d", path.Join(path.Dir(event.Path), "."+path.Base(event.Path)), i),
 						Props:    newProps,
+						Type:     EventTypeRecurrence,
 						Constant: true,
 						Parent:   &event,
 					})
@@ -182,13 +190,13 @@ func (instance *Instance) readDir(dir string) ([]Event, error) {
 		}
 		relPath, err := filepath.Rel(instance.Root, path)
 		if err != nil {
-			log.Printf("warning: path for '%s' failed and the event was ignored: %s\n", path, err)
+			log.Printf("warning: path for '%s' failed and was ignored: %s\n", path, err)
 			continue
 		}
 
 		event, err := instance.readEvent(relPath)
 		if err != nil {
-			log.Printf("warning: event '%s' failed and the event was ignored: %s\n", path, err)
+			log.Printf("warning: event '%s' failed and was ignored: %s\n", path, err)
 			continue
 		}
 		events = append(events, event)

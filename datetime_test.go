@@ -88,7 +88,7 @@ func TestDoPeriodsMeet(t *testing.T) {
 
 			"edge 1",
 			TimeRange{r.Add(0), r.Add(1)},
-			TimeRange{r.Add(2), r.Add(3)},
+			TimeRange{r.Add(1), r.Add(2)},
 			true,
 		},
 		{
@@ -96,7 +96,7 @@ func TestDoPeriodsMeet(t *testing.T) {
 			// s2222e
 
 			"edge 2",
-			TimeRange{r.Add(2), r.Add(3)},
+			TimeRange{r.Add(1), r.Add(2)},
 			TimeRange{r.Add(0), r.Add(1)},
 			true,
 		},

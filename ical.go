@@ -83,6 +83,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 
 func ToIcal(events []Event) *ics.Calendar {
 	cal := ics.NewCalendar()
+	cal.SetProductId("-//ian//ian calendar migration")
 	now := time.Now()
 
 	for _, event := range events {
@@ -97,20 +98,21 @@ func ToIcal(events []Event) *ics.Calendar {
 		icalEvent.SetEndAt(event.Props.End)
 
 		icalEvent.SetSummary(event.Props.Summary)
-		icalEvent.SetDescription(event.Props.Description)
 
-		icalEvent.SetLocation(event.Props.Location)
-		icalEvent.SetURL(event.Props.Url)
+    optionalProps := map[string]func(string, ...ics.PropertyParameter) {
+      event.Props.Description: icalEvent.SetDescription,
+      event.Props.Location: icalEvent.SetLocation,
+      event.Props.Url: icalEvent.SetURL,
+      event.Props.Recurrence.RRule: icalEvent.AddRrule,
+      event.Props.Recurrence.RDate: icalEvent.AddRdate,
+      event.Props.Recurrence.ExDate: icalEvent.AddExdate,
+    }
 
-    if s := event.Props.Recurrence.RRule; s != "" {
-			icalEvent.AddRrule(s)
-		}
-    if s := event.Props.Recurrence.RDate; s != "" {
-      icalEvent.AddRdate(s)
-		}
-    if s := event.Props.Recurrence.ExDate; s != "" {
-      icalEvent.AddExdate(s)
-		}
+    for value, f := range optionalProps {
+      if value != "" {
+        f(value)
+      }
+    }
 
 		cal.AddVEvent(icalEvent)
 	}
