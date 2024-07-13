@@ -46,9 +46,10 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-  events, _ := instance.ReadEvents(timeRange)
+  events, unsatisfiedRecurrences, _ := instance.ReadEvents(timeRange)
 
 	fmt.Println(ian.DisplayTimeline(instance, events, GetTimeZone()))
+  fmt.Println(ian.DisplayUnsatisfiedRecurrences(instance, unsatisfiedRecurrences))
 
 	if !noLegend {
 		fmt.Println("\n" + ian.DisplayCalendarLegend(instance, events))

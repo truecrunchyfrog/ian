@@ -153,7 +153,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	showWeeks := viper.GetBool("weeks")
 	widthPerDay := viper.GetUint("daywidth")
 
-	// Cannot rely on rootCmd.MarkFlagsMutuallyExclusive("sunday", "weeks") because it does not work with viper
 	if sunday && showWeeks {
 		log.Fatal("sundays and week numbers cannot be combined")
 	}
@@ -192,12 +191,12 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	} else {
 		monthRange.From = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
 	}
-	monthRange.To = monthRange.From.AddDate(0, 1, 0).Add(-time.Second)
+	monthRange.To = time.Date(year, time.Month(month + 1), 1, 0, 0, 0, 0, GetTimeZone()).Add(-time.Second)
 
 	var events []ian.Event
 
 	if !emptyCalendar {
-		events, err = instance.ReadEvents(monthRange)
+		events, _, err = instance.ReadEvents(monthRange)
     if err != nil {
       log.Fatal(err)
     }
@@ -218,7 +217,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		int(widthPerDay),
 		func(monthDay int, isToday bool) (string, bool) {
 			if isToday {
-				return "\033[44m", true
+				return "\033[1;30;47m", true
 			}
 			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
         var dayRange ian.TimeRange

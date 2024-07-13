@@ -29,14 +29,14 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  events, err := instance.ReadEvents(ian.TimeRange{})
+  events, _, err := instance.ReadEvents(ian.TimeRange{})
 
 	query := args[0]
   matches := ian.QueryEvents(&events, query)
 
 	switch {
 	case len(matches) < 1:
-		fmt.Printf("no loaded event matches query: '%s'\n", query)
+		fmt.Printf("no event matches query: '%s'\n", query)
 	case len(matches) > 1 && index == 0:
 		fmt.Printf("ambiguous query gave %d results:\n\n", len(matches))
 		for i, match := range matches {

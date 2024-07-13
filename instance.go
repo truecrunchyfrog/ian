@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -134,14 +135,14 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 					newProps.Start = recurrence
 					newProps.End = newProps.Start.Add(event.Props.End.Sub(event.Props.Start))
 					events = append(events, Event{
-						Path:        fmt.Sprintf(".fork/%s_%d", event.Path, i),
+						Path:        fmt.Sprintf("%s_%d", path.Join(path.Dir(event.Path), "." + path.Base(event.Path)), i),
 						Props:       newProps,
 						Constant:    true,
 						Parent:      &event,
 					})
 				}
 			}
-      if timeRange.IsZero() && (!rruleSet.Before(recurrenceRange.From, false).IsZero() || !rruleSet.After(recurrenceRange.To, false).IsZero()) {
+      if timeRange.IsZero() && !rruleSet.After(recurrenceRange.To, false).IsZero() {
         unsatisfiedRecurrences = append(unsatisfiedRecurrences, &event)
       }
 		}
@@ -151,7 +152,7 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 	// that is outside the time range, but has children inside the time range.
 	if !timeRange.IsZero() {
 		events = FilterEvents(&events, func(e *Event) bool {
-			return IsPeriodConfinedToPeriod(e.Props.GetTimeRange(), timeRange)
+			return DoPeriodsMeet(e.Props.GetTimeRange(), timeRange)
 		})
 	}
 

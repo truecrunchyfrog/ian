@@ -121,7 +121,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  events, _ := instance.ReadEvents(props.GetTimeRange())
+  events, _, _ := instance.ReadEvents(props.GetTimeRange())
 
 	checkCollision(&events, props)
 

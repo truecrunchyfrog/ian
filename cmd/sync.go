@@ -13,8 +13,8 @@ var ignoreCooldowns bool
 var listListeners bool
 
 func init() {
-  syncCmd.Flags().BoolVarP(&ignoreCooldowns, "ignore-cooldowns", "i", false, "Ignore any listener cooldowns.")
-  syncCmd.Flags().BoolVarP(&listListeners, "list", "l", false, "List configured sync listeners instead of syncing.")
+	syncCmd.Flags().BoolVarP(&ignoreCooldowns, "ignore-cooldowns", "i", false, "Ignore any listener cooldowns.")
+	syncCmd.Flags().BoolVarP(&listListeners, "list", "l", false, "List configured sync listeners instead of syncing.")
 
 	rootCmd.AddCommand(syncCmd)
 }
@@ -33,23 +33,23 @@ func syncCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  if listListeners {
-    fmt.Println("configured sync listeners:")
-    for name, listener := range instance.Config.Sync.Listeners {
-      fmt.Printf("'%s' has command '%s' with a cooldown of %s\n", name, listener.Command, listener.Cooldown_)
-    }
-    fmt.Println("\nsync is not made when listing listeners.")
-    return
-  }
+	if listListeners {
+		fmt.Println("configured sync listeners:")
+		for name, listener := range instance.Config.Sync.Listeners {
+			fmt.Printf("'%s' has command '%s' with a cooldown of %s\n", name, listener.Command, ian.DurationToString(listener.Cooldown_))
+		}
+		fmt.Println("\nsync is not made when listing listeners.")
+		return
+	}
 
-  fmt.Println("syncing...\n")
+	fmt.Println("syncing...\n")
 
-  if err := instance.Sync(ian.SyncEvent{
+	if err := instance.Sync(ian.SyncEvent{
 		Type:    ian.SyncEventPing,
-    Message: "ian: manual sync",
-  }, ignoreCooldowns, os.Stdout); err != nil {
-    log.Fatal(err)
-  }
+		Message: "ian: manual sync",
+	}, ignoreCooldowns, os.Stdout); err != nil {
+		log.Fatal(err)
+	}
 
-  fmt.Println("sync done")
+	fmt.Println("sync done")
 }

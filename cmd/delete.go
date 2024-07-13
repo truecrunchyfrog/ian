@@ -34,7 +34,7 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	events, err := instance.ReadEvents(ian.TimeRange{})
+	events, _, err := instance.ReadEvents(ian.TimeRange{})
 	if err != nil {
 		log.Fatal(err)
 	}

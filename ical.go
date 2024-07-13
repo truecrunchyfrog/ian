@@ -37,7 +37,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		}
 
 		var allDay bool
-		if start.Equal(end) {
+		if start.Equal(end) || start.AddDate(0, 0, 1).Equal(end) {
 			allDay = true
 			var err error
 			if start, err = icalEvent.GetAllDayStartAt(); err != nil {
@@ -58,7 +58,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		if rruleString := getProp(icalEvent, ics.PropertyRrule); rruleString != "" {
 			rr, err := rrule.StrToRRule(rruleString)
 			if err != nil {
-				return nil, fmt.Errorf("RRule parse failure: %s", err)
+				return nil, fmt.Errorf("RRule parse failed: %s", err)
 			}
 			rruleSet.RRule(rr)
 			rruleSet.DTStart(start)
@@ -67,7 +67,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		if rdateString := getProp(icalEvent, ics.PropertyRdate); rdateString != "" {
 			rd, err := rrule.StrToDates(rdateString)
 			if err != nil {
-				return nil, fmt.Errorf("RDate parse failure: %s", err)
+				return nil, fmt.Errorf("RDate parse failed: %s", err)
 			}
 			for _, d := range rd {
 				rruleSet.RDate(d)
@@ -77,7 +77,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		if exdateString := getProp(icalEvent, ics.PropertyExdate); exdateString != "" {
 			xd, err := rrule.StrToDates(exdateString)
 			if err != nil {
-				return nil, fmt.Errorf("ExDate parse failure: %s", err)
+				return nil, fmt.Errorf("ExDate parse failed: %s", err)
 			}
 			for _, d := range xd {
 				rruleSet.ExDate(d)

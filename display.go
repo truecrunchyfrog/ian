@@ -143,11 +143,14 @@ type eventEntry struct {
 
 // possibleEntryDate returns a formatted date if it has not yet been shown (based on lastShownDate).
 func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
-	var date, year string
+	var date, year, month string
 
 	if current.YearDay() != lastShownDate.YearDay() || current.Year() != lastShownDate.Year() {
-		if !lastShownDate.IsZero() && current.Year() != lastShownDate.Year() {
-			year = fmt.Sprintf("\n\033[4m%s\033[24m\n", current.Format("2006"))
+		if current.Year() != lastShownDate.Year() {
+			year = fmt.Sprintf("%7s\n%-7s\n", "", current.Format("2006"))
+		}
+		if current.Month() != lastShownDate.Month() || current.Year() != lastShownDate.Year() {
+			month = fmt.Sprintf("%7s\n", "")
 		}
 		date += current.Format("_2 Jan")
 		*lastShownDate = current
@@ -156,16 +159,22 @@ func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 	now := time.Now().In(current.Location())
 	var format string
 	switch {
-	case current.YearDay() < now.YearDay() && current.Year() <= now.Year():
-		format += "\033[3m"
+	case current.Year() < now.Year():
+		fallthrough
+	case current.YearDay() < now.YearDay() && current.Year() == now.Year():
+		// Past days:
+		format = "\033[3m"
 		fallthrough
 	case current.YearDay() != now.YearDay() || current.Year() != now.Year():
-		format += "\033[2m"
+		// Not today:
+		format = "\033[2m" + format
+	default:
+		// Today:
+		format = "\033[1;30;47m"
 	}
-	return fmt.Sprintf("%s"+format+"%-6s\033[0m ", year, date)
+	return fmt.Sprintf("%s%s%s%-6s\033[0m ", year, month, format, date)
 }
 
-// TODO add parallel support
 func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Time, location *time.Location) string {
 	var output string
 
@@ -193,10 +202,18 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 				period = startFmt + " 🡲  " + endFmt
 			}
 		} else {
-			period = "*"
+			period = "+"
 		}
 
-		output += possibleEntryDate(start, lastShownDate) + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m " + entry.event.Props.Summary + "\033[0m"
+		pipes := displayPipes(instance, entry)
+
+		entryDate := possibleEntryDate(start, lastShownDate)
+		entryDateLines := strings.Split(entryDate, "\n")
+    for i := 0; i < len(entryDateLines); i++ {
+			entryDateLines[i] += pipes
+		}
+
+		output += strings.Join(entryDateLines, "\n") + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m " + entry.event.Props.Summary + "\033[0m"
 	}
 	for _, child := range entry.children {
 		// Children
@@ -204,7 +221,21 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 	}
 	if entry.event != nil && (len(entry.children) != 0 || entry.event.Props.Start.In(location).Day() != entry.event.Props.End.In(location).Day()) {
 		// Tail
-		output += "\n" + possibleEntryDate(entry.event.Props.End.In(location), lastShownDate) + displayPipes(instance, entry) + GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + " \033[22;2;9m" + entry.event.Props.Summary + "\033[0m"
+
+		pipes := displayPipes(instance, entry)
+    innerPipes := displayPipes(instance, &eventEntry{parent: entry})
+
+		entryDate := possibleEntryDate(entry.event.Props.End.In(location), lastShownDate)
+		entryDateLines := strings.Split(entryDate, "\n")
+    for i := 0; i < len(entryDateLines); i++ {
+			if i != len(entryDateLines)-1 {
+				entryDateLines[i] += innerPipes
+			} else {
+				entryDateLines[i] += pipes
+			}
+		}
+
+		output += "\n" + strings.Join(entryDateLines, "\n") + GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + " \033[22;2;9m" + entry.event.Props.Summary + "\033[0m"
 	}
 	return output
 }
@@ -227,24 +258,11 @@ func DisplayTimeline(instance *Instance, events []Event, location *time.Location
 		if s := e1.Props.Start.Compare(e2.Props.Start); s != 0 {
 			return s
 		} else {
-			return e2.Props.End.Compare(e1.Props.End) // NOTE these (e1 and e2) were switched in attempt to make the later end date come first, for visual clustering!
+			return e2.Props.End.Compare(e1.Props.End)
 		}
 	})
 
 	// Put the events into a tree:
-
-	// Example:
-	/*
-
-	   1 Jan 09:00 Project
-	   2 Jan │ 15:00→18:40 Discuss project with team
-	   3 Jan │ 09:00 Workshop
-	         │ │ 10:30→13:00 Work on project with team
-	         │ └16:00 end <Workshop>
-	   7 Jan │ 17:00→19:00 Event in the middle
-	  14 Jan └15:00 end <Project>
-
-	*/
 
 	rootEntry := eventEntry{
 		children: []*eventEntry{},
@@ -271,6 +289,16 @@ func DisplayTimeline(instance *Instance, events []Event, location *time.Location
 
 	lastShownDate := time.Time{}
 	return displayEntry(instance, &rootEntry, &lastShownDate, location)
+}
+
+func DisplayUnsatisfiedRecurrences(instance *Instance, unsatisfiedRecurrences []*Event) string {
+	var output string
+
+	for _, event := range unsatisfiedRecurrences {
+		output += fmt.Sprintf("\n%s[..]\033[0;2m there are more occurences of '%s'! \033[2mspecify a range to show more.\033[0m", GetEventRgbAnsiSeq(event, instance, true), event.Props.Summary)
+	}
+
+	return output
 }
 
 func DisplayCalendarLegend(instance *Instance, events []Event) string {
