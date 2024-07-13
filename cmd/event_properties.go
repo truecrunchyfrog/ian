@@ -17,13 +17,16 @@ const eventFlag_AllDay = "all-day"
 const eventFlag_Description = "description"
 const eventFlag_Location = "location"
 const eventFlag_Url = "url"
-const eventFlag_Recurrence = "recurrence"
 const eventFlag_Duration = "duration"
 const eventFlag_Hours = "hours"
 
+const eventFlag_Rrule = "rrule"
+const eventFlag_Rdate = "rdate"
+const eventFlag_ExDate = "exdate"
+
 var eventPropsCmd = &cobra.Command{
-	Use: "event",
-  Aliases: []string{"ev"},
+	Use:     "event",
+	Aliases: []string{"ev"},
 }
 var eventFlags = eventPropsCmd.PersistentFlags()
 
@@ -34,7 +37,9 @@ func init() {
 	eventFlags.StringP(eventFlag_Start, "s", "", "Start date.")
 	eventFlags.StringP(eventFlag_End, "e", "", "End date.")
 	eventFlags.BoolP(eventFlag_AllDay, "a", false, "If the event should be marked as all-day.")
-	eventFlags.StringP(eventFlag_Recurrence, "r", "", "RRule/RDate/ExDate according to iCalendar RFC 5545.")
+	eventFlags.String(eventFlag_Rrule, "", "An RRULE expression according to iCalendar RFC 5545.")
+	eventFlags.String(eventFlag_Rdate, "", "An RDATE expression according to iCalendar RFC 5545.")
+	eventFlags.String(eventFlag_ExDate, "", "An EXDATE expression according to iCalendar RFC 5545.")
 
 	eventFlags.StringP(eventFlag_Description, "D", "", "Detailed event description.")
 	eventFlags.StringP(eventFlag_Location, "l", "", "Where the event is taking place (e.g. address).")

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/teambition/rrule-go"
 	"github.com/truecrunchyfrog/ian"
 )
 
@@ -87,16 +86,9 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	var recurrence string
-	if eventFlags.Changed(eventFlag_Recurrence) {
-		recurrenceFlag, _ := eventFlags.GetString(eventFlag_Recurrence)
-		rruleSet, err := rrule.StrToRRuleSet(recurrenceFlag)
-		if err != nil {
-			log.Fatal("'recurrence' set is invalid: ", err)
-		}
-		rruleSet.DTStart(startDate)
-		recurrence = rruleSet.String()
-	}
+  rrule, _ := eventFlags.GetString(eventFlag_Rrule)
+  rdate, _ := eventFlags.GetString(eventFlag_Rdate)
+  exdate, _ := eventFlags.GetString(eventFlag_ExDate)
 
 	now := time.Now().In(GetTimeZone())
 
@@ -109,7 +101,11 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		Start:       startDate,
 		End:         endDate,
 		AllDay:      allDay,
-		Rrule:       recurrence,
+		Recurrence:  ian.Recurrence{
+			RRule:  rrule,
+			RDate:  rdate,
+			ExDate: exdate,
+		},
 		Created:     now,
 		Modified:    now,
 	}

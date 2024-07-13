@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/teambition/rrule-go"
 )
 
 type Instance struct {
@@ -121,10 +119,10 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 		recurrenceRange.To = latestEnd
 	}
 	for _, event := range events {
-		if event.Props.Rrule != "" {
-			rruleSet, err := rrule.StrToRRuleSet(event.Props.Rrule)
+		if event.Props.Recurrence.IsThereRecurrence() {
+			rruleSet, err := event.Props.GetRruleSet()
 			if err != nil {
-				log.Printf("warning: '%s' has an invalid RRule property and recurrences were ignored: %s\n", event.Path, err)
+				log.Printf("warning: '%s' has an invalid recurrence set, and any recurrences were ignored: %s\n", event.Path, err)
 				continue
 			}
 			recurrences := rruleSet.Between(recurrenceRange.From, recurrenceRange.To, true)

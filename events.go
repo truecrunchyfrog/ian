@@ -76,9 +76,44 @@ type EventProperties struct {
 }
 
 type Recurrence struct {
-	Rrule  string
-	Rdate  string
+	RRule  string
+	RDate  string
 	ExDate string
+}
+
+func (rec *Recurrence) IsThereRecurrence() bool {
+  return rec.RRule != "" || rec.RDate != ""
+}
+
+func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
+	set := rrule.Set{}
+
+  if s := props.Recurrence.RRule; s != "" {
+		rr, err := rrule.StrToRRule(s)
+		if err != nil {
+			return rrule.Set{}, fmt.Errorf("RRULE parse failed: %s", err)
+		}
+		set.RRule(rr)
+		set.DTStart(props.Start)
+	}
+
+  if s := props.Recurrence.RDate; s != "" {
+		rd, err := rrule.StrToDates(s)
+		if err != nil {
+			return rrule.Set{}, fmt.Errorf("RDATE parse failed: %s", err)
+		}
+    set.SetRDates(rd)
+	}
+
+  if s := props.Recurrence.ExDate; s != "" {
+		xd, err := rrule.StrToDates(s)
+		if err != nil {
+			return rrule.Set{}, fmt.Errorf("EXDATE parse failed: %s", err)
+		}
+    set.SetExDates(xd)
+	}
+
+	return set, nil
 }
 
 func (props *EventProperties) GetTimeRange() TimeRange {
@@ -86,41 +121,6 @@ func (props *EventProperties) GetTimeRange() TimeRange {
 		From: props.Start,
 		To:   props.End,
 	}
-}
-
-func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
-	set := rrule.Set{}
-
-	if props.Recurrence.Rrule != "" {
-		rr, err := rrule.StrToRRule(props.Recurrence.Rrule)
-		if err != nil {
-			return rrule.Set{}, fmt.Errorf("RRule parse failed: %s", err)
-		}
-		set.RRule(rr)
-		set.DTStart(props.Start)
-	}
-
-	if props.Recurrence.Rdate != "" {
-		rd, err := rrule.StrToDates(props.Recurrence.Rdate)
-		if err != nil {
-			return rrule.Set{}, fmt.Errorf("RDate parse failed: %s", err)
-		}
-		for _, d := range rd {
-			set.RDate(d)
-		}
-	}
-
-	if props.Recurrence.ExDate != "" {
-		xd, err := rrule.StrToDates(props.Recurrence.ExDate)
-		if err != nil {
-			return rrule.Set{}, fmt.Errorf("ExDate parse failed: %s", err)
-		}
-		for _, d := range xd {
-			set.ExDate(d)
-		}
-	}
-
-	return set, nil
 }
 
 func (p *EventProperties) Validate() error {

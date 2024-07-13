@@ -62,7 +62,7 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
       { "end", event.Props.End },
       { "duration", ian.DurationToString(event.Props.End.Sub(event.Props.Start)) },
       { "all-day", event.Props.AllDay },
-      { "recurrence", event.Props.Rrule },
+      { "recurrence", event.Props.Recurrence },
       { "", "" },
       { "description", event.Props.Description },
       { "location", event.Props.Location },

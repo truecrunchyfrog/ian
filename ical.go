@@ -4,7 +4,6 @@ import (
 	"time"
 
 	ics "github.com/arran4/golang-ical"
-	"github.com/teambition/rrule-go"
 )
 
 const icalTimeLayout string = "20060102T150405Z"
@@ -103,10 +102,14 @@ func ToIcal(events []Event) *ics.Calendar {
 		icalEvent.SetLocation(event.Props.Location)
 		icalEvent.SetURL(event.Props.Url)
 
-		if event.Props.Rrule != "" {
-			if rruleSet, err := rrule.StrToRRuleSet(event.Props.Rrule); err == nil {
-				icalEvent.AddRrule(rruleSet.GetRRule().String())
-			}
+    if s := event.Props.Recurrence.RRule; s != "" {
+			icalEvent.AddRrule(s)
+		}
+    if s := event.Props.Recurrence.RDate; s != "" {
+      icalEvent.AddRdate(s)
+		}
+    if s := event.Props.Recurrence.ExDate; s != "" {
+      icalEvent.AddExdate(s)
 		}
 
 		cal.AddVEvent(icalEvent)

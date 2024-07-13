@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/teambition/rrule-go"
 	"github.com/truecrunchyfrog/ian"
 )
 
+const copyFlag string = "copy"
 const updateUidFlag string = "update-uid"
 
 func init() {
+  editCmd.Flags().String(copyFlag, "", "Copy the event to the `destination` path.")
   editCmd.Flags().Bool(updateUidFlag, false, "Update the UID of an event.")
 
 	eventPropsCmd.AddCommand(editCmd)
@@ -58,6 +59,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	onWritten := []func(){}
 
 	flags := []string{
+    copyFlag,
     updateUidFlag,
 		eventFlag_Summary,
 		eventFlag_Start,
@@ -69,9 +71,17 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		eventFlag_Duration,
 		eventFlag_Hours,
 		eventFlag_Calendar,
-		eventFlag_Recurrence,
+		eventFlag_Rrule,
+		eventFlag_Rdate,
+		eventFlag_ExDate,
 	}
 
+  if cmd.Flags().Changed(copyFlag) { // Copy operation
+    event.Path, _ = cmd.Flags().GetString(copyFlag)
+    if e, _ := ian.GetEvent(&events, event.Path); e != nil {
+      log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
+    }
+  }
   if cmd.Flags().Changed(updateUidFlag) { // UID
     event.Props.Uid = ian.GenerateUid()
   }
@@ -120,6 +130,9 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		oldPath := event.GetRealPath(instance)
 		newCalendar, _ := eventFlags.GetString(eventFlag_Calendar)
 		event.Path = path.Join(newCalendar, path.Base(event.Path))
+    if e, _ := ian.GetEvent(&events, event.Path); e != nil {
+      log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
+    }
 		if ian.IsPathInCache(event.Path) {
 			log.Fatal("cannot set calendar to inside cache")
 		}
@@ -128,14 +141,17 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		})
 		fmt.Println("note: event is being moved to another file location.")
 	}
-	if eventFlags.Changed(eventFlag_Recurrence) { // Recurrence
-		recurrenceFlag, _ := eventFlags.GetString(eventFlag_Recurrence)
-		rruleSet, err := rrule.StrToRRuleSet(recurrenceFlag)
-		if err != nil {
-			log.Fatal("'recurrence' set is invalid: ", err)
-		}
-		rruleSet.DTStart(event.Props.Start)
-		event.Props.Rrule = rruleSet.String()
+	if eventFlags.Changed(eventFlag_Rrule) { // Rrule
+		recurrenceFlag, _ := eventFlags.GetString(eventFlag_Rrule)
+		event.Props.Recurrence.RRule = recurrenceFlag
+	}
+	if eventFlags.Changed(eventFlag_Rdate) { // Rdate
+		recurrenceFlag, _ := eventFlags.GetString(eventFlag_Rdate)
+		event.Props.Recurrence.RDate = recurrenceFlag
+	}
+	if eventFlags.Changed(eventFlag_ExDate) { // ExDate
+		recurrenceFlag, _ := eventFlags.GetString(eventFlag_ExDate)
+		event.Props.Recurrence.ExDate = recurrenceFlag
 	}
 
 	var modified []string
