@@ -209,7 +209,7 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 
 		entryDate := possibleEntryDate(start, lastShownDate)
 		entryDateLines := strings.Split(entryDate, "\n")
-    for i := 0; i < len(entryDateLines); i++ {
+		for i := 0; i < len(entryDateLines); i++ {
 			entryDateLines[i] += pipes
 		}
 
@@ -223,11 +223,11 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 		// Tail
 
 		pipes := displayPipes(instance, entry)
-    innerPipes := displayPipes(instance, &eventEntry{parent: entry})
+		innerPipes := displayPipes(instance, &eventEntry{parent: entry})
 
 		entryDate := possibleEntryDate(entry.event.Props.End.In(location), lastShownDate)
 		entryDateLines := strings.Split(entryDate, "\n")
-    for i := 0; i < len(entryDateLines); i++ {
+		for i := 0; i < len(entryDateLines); i++ {
 			if i != len(entryDateLines)-1 {
 				entryDateLines[i] += innerPipes
 			} else {

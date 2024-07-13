@@ -113,7 +113,7 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 		}
 	}
 
-  unsatisfiedRecurrences := []*Event{}
+	unsatisfiedRecurrences := []*Event{}
 
 	recurrenceRange := timeRange
 	if recurrenceRange.IsZero() {
@@ -129,22 +129,22 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 			}
 			recurrences := rruleSet.Between(recurrenceRange.From, recurrenceRange.To, true)
 			if len(recurrences) > 0 {
-        recurrences = recurrences[1:] // Ignore the first one because it already exists.
+				recurrences = recurrences[1:] // Ignore the first one because it already exists.
 				for i, recurrence := range recurrences {
 					newProps := event.Props
 					newProps.Start = recurrence
 					newProps.End = newProps.Start.Add(event.Props.End.Sub(event.Props.Start))
 					events = append(events, Event{
-						Path:        fmt.Sprintf("%s_%d", path.Join(path.Dir(event.Path), "." + path.Base(event.Path)), i),
-						Props:       newProps,
-						Constant:    true,
-						Parent:      &event,
+						Path:     fmt.Sprintf("%s_%d", path.Join(path.Dir(event.Path), "."+path.Base(event.Path)), i),
+						Props:    newProps,
+						Constant: true,
+						Parent:   &event,
 					})
 				}
 			}
-      if timeRange.IsZero() && !rruleSet.After(recurrenceRange.To, false).IsZero() {
-        unsatisfiedRecurrences = append(unsatisfiedRecurrences, &event)
-      }
+			if timeRange.IsZero() && !rruleSet.After(recurrenceRange.To, false).IsZero() {
+				unsatisfiedRecurrences = append(unsatisfiedRecurrences, &event)
+			}
 		}
 	}
 

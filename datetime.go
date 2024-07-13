@@ -12,7 +12,7 @@ type TimeRange struct {
 }
 
 func (tr *TimeRange) IsZero() bool {
-  return tr.From.IsZero() && tr.To.IsZero()
+	return tr.From.IsZero() && tr.To.IsZero()
 }
 
 const DefaultTimeLayout string = "_2 Jan 15:04 MST 2006"

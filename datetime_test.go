@@ -9,10 +9,10 @@ func TestIsTimeWithinPeriod(t *testing.T) {
 	r := time.Now()
 
 	var tests = []struct {
-		name          string
-    t time.Time
-    p TimeRange
-		want          bool
+		name string
+		t    time.Time
+		p    TimeRange
+		want bool
 	}{
 		{
 			"before",
@@ -60,17 +60,17 @@ func TestDoPeriodsMeet(t *testing.T) {
 	r := time.Now()
 
 	var tests = []struct {
-		name           string
-    p1, p2 TimeRange
-		want           bool
+		name   string
+		p1, p2 TimeRange
+		want   bool
 	}{
 		{
 			// s1111e
 			//    s2222e
 
 			"meet in middle",
-      TimeRange{r.Add(0), r.Add(10)},
-      TimeRange{r.Add(5), r.Add(20)},
+			TimeRange{r.Add(0), r.Add(10)},
+			TimeRange{r.Add(5), r.Add(20)},
 			true,
 		},
 		{
