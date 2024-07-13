@@ -23,6 +23,7 @@ func init() {
 
 var deleteCmd = &cobra.Command{
 	Use:   "rm <event>",
+  Aliases: []string{"remove", "rem", "delete", "del"},
 	Short: "Delete an event",
 	Args:  cobra.ExactArgs(1),
 	Run:   deleteCmdRun,

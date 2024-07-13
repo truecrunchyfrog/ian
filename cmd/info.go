@@ -70,6 +70,8 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
       { "", "" },
       { "created", event.Props.Created },
       { "modified", event.Props.Modified },
+      { "", "" },
+      { "uid", event.Props.Uid },
     }
 
     for _, keyValue := range pairs {

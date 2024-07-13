@@ -18,6 +18,7 @@ func init() {
 
 var timelineCmd = &cobra.Command{
 	Use:   "timeline [from [to]]",
+  Aliases: []string{"time", "t", "tl"},
 	Short: "View events in a timeline",
   Long: "View all events in a visual timeline. 'from' defaults to year 0. 'to' defaults to 5 years ahead in time.",
 	Args:  cobra.RangeArgs(0, 2),

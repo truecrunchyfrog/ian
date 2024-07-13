@@ -28,7 +28,7 @@ var eventPropsCmd = &cobra.Command{
 var eventFlags = eventPropsCmd.PersistentFlags()
 
 func init() {
-	eventFlags.StringP(eventFlag_Calendar, "c", "", "Add the event to a specified calendar (e.g. 'share'), instead of the main calendar (''). Calendars are the directories inside the root. Calendars can be recursive, e.g.: 'share/family'.")
+	eventFlags.StringP(eventFlag_Calendar, "c", "", "Specify calendar to place event in.")
 	eventFlags.StringP(eventFlag_Summary, "S", "", "Event brief.")
 
 	eventFlags.StringP(eventFlag_Start, "s", "", "Start date.")

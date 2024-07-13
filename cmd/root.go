@@ -70,7 +70,7 @@ func GetTimeZone() *time.Location {
 func checkCollision(events *[]ian.Event, props ian.EventProperties) {
 	if !ignoreCollisionWarnings || noCollision {
 		collidingEvents := ian.FilterEvents(events, func(e *ian.Event) bool {
-			return !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.GetTimeRange(), e.Props.GetTimeRange())
+			return e.Props.Uid != props.Uid && !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.GetTimeRange(), e.Props.GetTimeRange())
 		})
 
 		if !ignoreCollisionWarnings {
@@ -99,12 +99,14 @@ func init() {
 
 	rootCmd.PersistentFlags().String("root", defaultRoot, "Set the calendar root.")
 	rootCmd.PersistentFlags().String("timezone", "", "Set the timezone to work with. Overrides the local timezone.")
+	rootCmd.PersistentFlags().Bool("no-validation", false, "Disable event validation. Used for updating invalid events.")
 	rootCmd.PersistentFlags().BoolVarP(&ian.Verbose, "verbose", "v", false, "Enable verbose mode. More information is given.")
 	rootCmd.PersistentFlags().BoolVar(&noCollision, "no-collision", false, "Prevent events from being created or edited to collide with another event.")
 	rootCmd.PersistentFlags().StringSliceVar(&collisionExceptions, "collision-exceptions", []string{}, "Mark a list of `calendars` as exceptions for collisions. When a calendar is listed, collision warnings will not be shown, and when combined with 'no-collision' a collision for an event within a calendar specified here will pass.")
 	rootCmd.PersistentFlags().BoolVar(&ignoreCollisionWarnings, "no-collision-warnings", false, "Hides the warnings shown when an event will collide with an existing event.")
 	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
+	viper.BindPFlag("no-validation", rootCmd.PersistentFlags().Lookup("no-validation"))
 	viper.BindPFlag("no-collision", rootCmd.PersistentFlags().Lookup("no-collision"))
 	viper.BindPFlag("collision-exceptions", rootCmd.PersistentFlags().Lookup("collision-exceptions"))
 	viper.BindPFlag("no-collision-warnings", rootCmd.PersistentFlags().Lookup("no-collision-warnings"))

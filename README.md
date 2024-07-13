@@ -1,12 +1,17 @@
 # ian
 
-(gregor)ian is a file-based calendar.
-It strives for iCalendar RFC 5545 compatability (https://datatracker.ietf.org/doc/html/rfc5545).
-ian supports "sources": which are dynamic and subscribeable calendars:
+(gregor)ian is a UNIX-oriented, file-based, raw, calendar, with a CLIent and server.
+ian was designed to quickly manipulate and manage personal and professional calendars.
+A server allows you to centralize your events, instead of using your pocket calendar for that.
+
+Events are stored in a (probably version controlled) directory, with subdirectories for each calendar.
+Each event is its own TOML file, which makes manual event manipulation easy.
+
+This project strives for iCalendar RFC 5545 compatability (https://datatracker.ietf.org/doc/html/rfc5545).
+
+ian supports dynamic and subscribeable calendars:
 * Native ian calendars.
 * Dynamic (interactive) CalDAV calendars.
 * Static iCalendars.
 
-Quickly create and manage calendar events with the CLI program. Synchronisation is easy to set up via VCS.
-Distribution and management is accomplishable with a self-hosted server, that you can entirely configure from any ian client.
-Configure your server to allow certain sections of your calendar to be shared to other ian clients or downloadable for external calendaring programs using the CalDAV protocol.
+Synchronization is done via configured listener commands.

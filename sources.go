@@ -16,7 +16,7 @@ import (
 	ics "github.com/arran4/golang-ical"
 )
 
-const CacheDirName string = "cache"
+const CacheDirName string = "sources"
 const CacheJournalFileName string = ".cache-journal.toml"
 const DefaultCacheLifetime time.Duration = 2 * time.Hour
 

@@ -3,8 +3,10 @@ package ian
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/google/uuid"
 )
 
 var Verbose bool
@@ -44,4 +46,8 @@ func parseEventFile(path string) (EventProperties, error) {
 	}
 
 	return props, nil
+}
+
+func GenerateUid() string {
+	return strings.ToUpper(uuid.New().String())
 }

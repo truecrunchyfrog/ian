@@ -24,6 +24,7 @@ func init() {
 
 var sourcesCmd = &cobra.Command{
 	Use:   "sources",
+  Aliases: []string{"src", "srcs"},
 	Short: "Manage and view sources",
 	Args:  cobra.NoArgs,
 	Run:   sourcesCmdRun,
@@ -49,7 +50,7 @@ func sourcesCmdRun(cmd *cobra.Command, args []string) {
   }
 
 	for name, source := range instance.Config.Sources {
-		fmt.Printf("%s:\n\t%s\n", name, source.Source)
+		fmt.Printf("'%s' (%s): \033[2m%s\033[22m\n", name, source.Type, source.Source)
 
 		if updateAll || slices.Contains(updateSources, name) {
 			fmt.Printf("(updating '%s'...)\n", name)

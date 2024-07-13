@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/spf13/viper"
+	"github.com/teambition/rrule-go"
 )
 
 type Event struct {
@@ -56,6 +58,8 @@ func (event *Event) String() string {
 }
 
 type EventProperties struct {
+	Uid string
+
 	Summary     string
 	Description string
 	Location    string
@@ -65,10 +69,16 @@ type EventProperties struct {
 	End    time.Time
 	AllDay bool
 
-	Rrule string
+	Recurrence Recurrence
 
 	Created  time.Time
 	Modified time.Time
+}
+
+type Recurrence struct {
+	Rrule  string
+	Rdate  string
+	ExDate string
 }
 
 func (props *EventProperties) GetTimeRange() TimeRange {
@@ -78,8 +88,48 @@ func (props *EventProperties) GetTimeRange() TimeRange {
 	}
 }
 
+func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
+	set := rrule.Set{}
+
+	if props.Recurrence.Rrule != "" {
+		rr, err := rrule.StrToRRule(props.Recurrence.Rrule)
+		if err != nil {
+			return rrule.Set{}, fmt.Errorf("RRule parse failed: %s", err)
+		}
+		set.RRule(rr)
+		set.DTStart(props.Start)
+	}
+
+	if props.Recurrence.Rdate != "" {
+		rd, err := rrule.StrToDates(props.Recurrence.Rdate)
+		if err != nil {
+			return rrule.Set{}, fmt.Errorf("RDate parse failed: %s", err)
+		}
+		for _, d := range rd {
+			set.RDate(d)
+		}
+	}
+
+	if props.Recurrence.ExDate != "" {
+		xd, err := rrule.StrToDates(props.Recurrence.ExDate)
+		if err != nil {
+			return rrule.Set{}, fmt.Errorf("ExDate parse failed: %s", err)
+		}
+		for _, d := range xd {
+			set.ExDate(d)
+		}
+	}
+
+	return set, nil
+}
+
 func (p *EventProperties) Validate() error {
+	if viper.GetBool("no-validation") {
+		return nil
+	}
 	switch {
+	case p.Uid == "":
+		return errors.New("uid cannot be empty")
 	case p.Summary == "":
 		return errors.New("summary cannot be empty")
 	case p.Start.After(p.End):

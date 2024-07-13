@@ -15,11 +15,12 @@ func init() {
 }
 
 var addCmd = &cobra.Command{
-	Use:   "add [summary] [start] [end]",
-	Short: "Create a new event",
-	Long:  "The arguments 'start' and 'end' support many different formats. The recommended format for most events is dd/mm, or dd/mm hh:mm with time. A time zone can be appended with +-hhmm or 'UTC'-like format.",
-	Args:  cobra.RangeArgs(0, 3),
-	Run:   addCmdRun,
+	Use:     "add [summary] [start] [end]",
+	Aliases: []string{"a", "create", "cr", "make", "mk", "new", "n"},
+	Short:   "Create a new event",
+	Long:    "The arguments 'start' and 'end' support many different formats. The recommended format for most events is dd/mm, or dd/mm hh:mm with time. A time zone can be appended with +-hhmm or 'UTC'-like format.",
+	Args:    cobra.RangeArgs(0, 3),
+	Run:     addCmdRun,
 }
 
 func addCmdRun(cmd *cobra.Command, args []string) {
@@ -36,15 +37,15 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	summary, _ := eventFlags.GetString(eventFlag_Summary)
-  if summary == "" {
-    log.Fatal("'summary' cannot be empty")
-  }
+	if summary == "" {
+		log.Fatal("'summary' cannot be empty")
+	}
 	start, _ := eventFlags.GetString(eventFlag_Start)
 	end, _ := eventFlags.GetString(eventFlag_End)
-  description, _ := eventFlags.GetString(eventFlag_Description)
-  location, _ := eventFlags.GetString(eventFlag_Location)
-  url, _ := eventFlags.GetString(eventFlag_Url)
-  calendar, _ := eventFlags.GetString(eventFlag_Calendar)
+	description, _ := eventFlags.GetString(eventFlag_Description)
+	location, _ := eventFlags.GetString(eventFlag_Location)
+	url, _ := eventFlags.GetString(eventFlag_Url)
+	calendar, _ := eventFlags.GetString(eventFlag_Calendar)
 
 	duration, err := eventFlags.GetDuration(eventFlag_Duration)
 	if err != nil {
@@ -74,9 +75,9 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 	case duration != 0:
 		endDate = startDate.Add(duration)
 	case len(hours) != 0:
-    if err := handleHours(hours, &startDate, &endDate); err != nil {
-      log.Fatal(err)
-    }
+		if err := handleHours(hours, &startDate, &endDate); err != nil {
+			log.Fatal(err)
+		}
 	default:
 		if h, m, s := startDate.Clock(); h+m+s == 0 {
 			endDate = startDate.AddDate(0, 0, 1).Add(-time.Second)
@@ -86,9 +87,9 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-  var recurrence string
-  if eventFlags.Changed(eventFlag_Recurrence) {
-    recurrenceFlag, _ := eventFlags.GetString(eventFlag_Recurrence)
+	var recurrence string
+	if eventFlags.Changed(eventFlag_Recurrence) {
+		recurrenceFlag, _ := eventFlags.GetString(eventFlag_Recurrence)
 		rruleSet, err := rrule.StrToRRuleSet(recurrenceFlag)
 		if err != nil {
 			log.Fatal("'recurrence' set is invalid: ", err)
@@ -100,6 +101,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 	now := time.Now().In(GetTimeZone())
 
 	props := ian.EventProperties{
+		Uid:         ian.GenerateUid(),
 		Summary:     summary,
 		Description: description,
 		Location:    location,
@@ -121,7 +123,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  events, _, _ := instance.ReadEvents(props.GetTimeRange())
+	events, _, _ := instance.ReadEvents(props.GetTimeRange())
 
 	checkCollision(&events, props)
 

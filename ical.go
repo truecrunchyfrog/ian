@@ -1,7 +1,6 @@
 package ian
 
 import (
-	"fmt"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
@@ -53,42 +52,19 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		url := getProp(icalEvent, ics.PropertyUrl)
 
 		// Rrules:
-		rruleSet := rrule.Set{}
 
-		if rruleString := getProp(icalEvent, ics.PropertyRrule); rruleString != "" {
-			rr, err := rrule.StrToRRule(rruleString)
-			if err != nil {
-				return nil, fmt.Errorf("RRule parse failed: %s", err)
-			}
-			rruleSet.RRule(rr)
-			rruleSet.DTStart(start)
-		}
+		rrule := getProp(icalEvent, ics.PropertyRrule)
 
-		if rdateString := getProp(icalEvent, ics.PropertyRdate); rdateString != "" {
-			rd, err := rrule.StrToDates(rdateString)
-			if err != nil {
-				return nil, fmt.Errorf("RDate parse failed: %s", err)
-			}
-			for _, d := range rd {
-				rruleSet.RDate(d)
-			}
-		}
+		rdate := getProp(icalEvent, ics.PropertyRdate)
 
-		if exdateString := getProp(icalEvent, ics.PropertyExdate); exdateString != "" {
-			xd, err := rrule.StrToDates(exdateString)
-			if err != nil {
-				return nil, fmt.Errorf("ExDate parse failed: %s", err)
-			}
-			for _, d := range xd {
-				rruleSet.ExDate(d)
-			}
-		}
+		exdate := getProp(icalEvent, ics.PropertyExdate)
 
 		// Ignore errors for these, since they may not exist.
 		created, _ := parseIcalTime(getProp(icalEvent, ics.PropertyCreated))
 		modified, _ := parseIcalTime(getProp(icalEvent, ics.PropertyLastModified))
 
 		props := EventProperties{
+			Uid:         icalEvent.Id(),
 			Summary:     summary,
 			Description: description,
 			Location:    location,
@@ -96,7 +72,7 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 			Start:       start,
 			End:         end,
 			AllDay:      allDay,
-			Rrule:       rruleSet.String(),
+			Recurrence:  Recurrence{rrule, rdate, exdate},
 			Created:     created,
 			Modified:    modified,
 		}
@@ -104,4 +80,37 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 	}
 
 	return eventsProps, nil
+}
+
+func ToIcal(events []Event) *ics.Calendar {
+	cal := ics.NewCalendar()
+	now := time.Now()
+
+	for _, event := range events {
+		icalEvent := ics.NewEvent(event.Props.Uid)
+
+		icalEvent.SetCreatedTime(event.Props.Created)
+		icalEvent.SetModifiedAt(event.Props.Created)
+
+		icalEvent.SetDtStampTime(now)
+
+		icalEvent.SetStartAt(event.Props.Start)
+		icalEvent.SetEndAt(event.Props.End)
+
+		icalEvent.SetSummary(event.Props.Summary)
+		icalEvent.SetDescription(event.Props.Description)
+
+		icalEvent.SetLocation(event.Props.Location)
+		icalEvent.SetURL(event.Props.Url)
+
+		if event.Props.Rrule != "" {
+			if rruleSet, err := rrule.StrToRRuleSet(event.Props.Rrule); err == nil {
+				icalEvent.AddRrule(rruleSet.GetRRule().String())
+			}
+		}
+
+		cal.AddVEvent(icalEvent)
+	}
+
+	return cal
 }
