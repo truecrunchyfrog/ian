@@ -17,9 +17,9 @@ import (
 type EventType int
 
 const (
-  EventTypeNormal EventType = 1 << iota
-  EventTypeCache
-  EventTypeRecurrence
+	EventTypeNormal EventType = 1 << iota
+	EventTypeCache
+	EventTypeRecurrence
 )
 
 type Event struct {
@@ -27,7 +27,7 @@ type Event struct {
 	// Use `filepath.Rel(root, filename)`.
 	Path  string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
 	Props EventProperties
-  Type EventType
+	Type  EventType
 	// Constant is true if the event should not be changed. Used for source events (cache) or the event is generated from a recurrance (RRule).
 	Constant bool
 	// Parent is the parent event if this event is generated from a recurrence rule. Otherwise nil.
@@ -89,13 +89,13 @@ type Recurrence struct {
 }
 
 func (rec *Recurrence) IsThereRecurrence() bool {
-  return rec.RRule != "" || rec.RDate != ""
+	return rec.RRule != "" || rec.RDate != ""
 }
 
 func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
 	set := rrule.Set{}
 
-  if s := props.Recurrence.RRule; s != "" {
+	if s := props.Recurrence.RRule; s != "" {
 		rr, err := rrule.StrToRRule(s)
 		if err != nil {
 			return rrule.Set{}, fmt.Errorf("RRULE parse failed: %s", err)
@@ -104,20 +104,20 @@ func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
 		set.DTStart(props.Start)
 	}
 
-  if s := props.Recurrence.RDate; s != "" {
+	if s := props.Recurrence.RDate; s != "" {
 		rd, err := rrule.StrToDates(s)
 		if err != nil {
 			return rrule.Set{}, fmt.Errorf("RDATE parse failed: %s", err)
 		}
-    set.SetRDates(rd)
+		set.SetRDates(rd)
 	}
 
-  if s := props.Recurrence.ExDate; s != "" {
+	if s := props.Recurrence.ExDate; s != "" {
 		xd, err := rrule.StrToDates(s)
 		if err != nil {
 			return rrule.Set{}, fmt.Errorf("EXDATE parse failed: %s", err)
 		}
-    set.SetExDates(xd)
+		set.SetExDates(xd)
 	}
 
 	return set, nil

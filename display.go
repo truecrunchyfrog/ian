@@ -147,7 +147,10 @@ func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 
 	if current.YearDay() != lastShownDate.YearDay() || current.Year() != lastShownDate.Year() {
 		if current.Year() != lastShownDate.Year() {
-			year = fmt.Sprintf("%7s\n%-7s\n", "", current.Format("2006"))
+      if !lastShownDate.IsZero() {
+        year += fmt.Sprintf("%7s\n", "")
+      }
+			year += fmt.Sprintf("%-7s\n", current.Format("2006"))
 		}
 		if current.Month() != lastShownDate.Month() || current.Year() != lastShownDate.Year() {
 			month = fmt.Sprintf("%7s\n", "")
@@ -185,7 +188,7 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 
 		start := entry.event.Props.Start.In(location)
 		end := entry.event.Props.End.In(location)
-		if !entry.event.Props.AllDay {
+		if !entry.event.Props.AllDay || entry.event.Props.Start.Location() != location {
 			startFmt = start.Format("15")
 			if start.Minute() != 0 {
 				startFmt += start.Format(":04")
@@ -308,7 +311,7 @@ func DisplayCalendarLegend(instance *Instance, events []Event) string {
 	for _, event := range events {
 		cal := event.GetCalendarName()
 		if !slices.Contains(mentionedCals, cal) {
-			output += fmt.Sprintf(GetEventRgbAnsiSeq(&event, instance, false)+"▆ %s\n", cal)
+			output += fmt.Sprintf(GetEventRgbAnsiSeq(&event, instance, false)+"▆ %s\033[0m\n", cal)
 			mentionedCals = append(mentionedCals, cal)
 		}
 	}

@@ -7,8 +7,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/acarl005/stripansi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/truecrunchyfrog/ian"
@@ -187,27 +190,29 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  var monthRange ian.TimeRange
+	var monthRange ian.TimeRange
 	if month != int(now.Month()) || viper.GetBool("past") {
 		monthRange.From = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
 	} else {
 		monthRange.From = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
 	}
-	monthRange.To = time.Date(year, time.Month(month + 1), 1, 0, 0, 0, 0, GetTimeZone()).Add(-time.Second)
+	monthRange.To = time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, GetTimeZone()).Add(-time.Second)
 
 	var events []ian.Event
 
 	if !emptyCalendar {
 		events, _, err = instance.ReadEvents(monthRange)
-    if err != nil {
-      log.Fatal(err)
-    }
+		if err != nil {
+			log.Fatal(err)
+		}
 		events = ian.FilterEvents(&events, func(e *ian.Event) bool {
 			return ian.DoPeriodsMeet(e.Props.GetTimeRange(), monthRange)
 		})
 	}
 
-	fmt.Println(ian.DisplayCalendar(
+	var leftSide, rightSide []string
+
+	leftSide = strings.Split(ian.DisplayCalendar(
 		GetTimeZone(),
 		year,
 		time.Month(month),
@@ -222,9 +227,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 				return "\033[1;30;47m", true
 			}
 			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
-        var dayRange ian.TimeRange
-        dayRange.From = time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
-        dayRange.To = dayRange.From.AddDate(0, 0, 1).Add(-time.Second)
+				var dayRange ian.TimeRange
+				dayRange.From = time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
+				dayRange.To = dayRange.From.AddDate(0, 0, 1).Add(-time.Second)
 				eventsInDay := []*ian.Event{}
 				for _, event := range events {
 					if ian.DoPeriodsMeet(event.Props.GetTimeRange(), dayRange) {
@@ -257,13 +262,36 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 				}
 			}
 			return "", false
-		}))
+		}), "\n")
 
 	if !emptyCalendar && !viper.GetBool("no-timeline") {
-		fmt.Println(ian.DisplayTimeline(instance, events, GetTimeZone()))
+		rightSide = strings.Split(ian.DisplayTimeline(instance, events, GetTimeZone()), "\n")
 	}
 
 	if !emptyCalendar && !viper.GetBool("no-legend") {
-		fmt.Println("\n" + ian.DisplayCalendarLegend(instance, events))
+		leftSide = append(leftSide, strings.Split(ian.DisplayCalendarLegend(instance, events), "\n")...)
+	}
+
+	var indent int
+
+	for _, line := range leftSide {
+    if l := utf8.RuneCountInString(stripansi.Strip(line)); l > indent {
+			indent = l + 10
+		}
+	}
+
+	for i := 0; i < max(len(leftSide), len(rightSide)); i++ {
+		var line string
+
+		if i < len(leftSide) {
+			line += leftSide[i]
+		}
+
+		if i < len(rightSide) {
+			line += strings.Repeat(" ", indent-utf8.RuneCountInString(stripansi.Strip(line)))
+			line += rightSide[i]
+		}
+
+		fmt.Println(line)
 	}
 }

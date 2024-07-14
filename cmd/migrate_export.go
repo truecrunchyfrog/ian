@@ -101,7 +101,11 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("file") {
 		fileDest, _ := cmd.Flags().GetString("file")
 		ics := ian.ToIcal(events)
-		if err := os.WriteFile(fileDest, []byte(ics.Serialize()), 0644); err != nil {
+    out, err := ian.SerializeIcal(ics)
+    if err != nil {
+      log.Fatal(err)
+    }
+		if err := os.WriteFile(fileDest, out, 0644); err != nil {
 			log.Fatal(err)
 		}
 	} else if cmd.Flags().Changed("directory") {
@@ -128,11 +132,20 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 				"/", "-",
 			).Replace(cal) + ".ics"
 			ics := ian.ToIcal(events)
-			if err := os.WriteFile(filepath.Join(dirDest, filename), []byte(ics.Serialize()), 0644); err != nil {
+      out, err := ian.SerializeIcal(ics)
+      if err != nil {
+        log.Fatal(err)
+      }
+			if err := os.WriteFile(filepath.Join(dirDest, filename), out, 0644); err != nil {
 				log.Fatal(err)
 			}
 		}
 	} else {
-		fmt.Print(ian.ToIcal(events).Serialize())
+    ics := ian.ToIcal(events)
+    out, err := ian.SerializeIcal(ics)
+    if err != nil {
+      log.Fatal(err)
+    }
+		fmt.Print(out)
 	}
 }

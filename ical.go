@@ -1,35 +1,22 @@
 package ian
 
 import (
+	"bytes"
+	"io"
 	"time"
 
-	ics "github.com/arran4/golang-ical"
+	"github.com/emersion/go-ical"
 )
 
-const icalTimeLayout string = "20060102T150405Z"
-
-func parseIcalTime(input string) (time.Time, error) {
-	return time.Parse(icalTimeLayout, input)
-}
-
-func getProp(icalEvent *ics.VEvent, prop ics.Property) string {
-	ianaProp := icalEvent.GetProperty(ics.ComponentProperty(prop))
-	if ianaProp == nil {
-		return ""
-	}
-	return ianaProp.Value
-}
-
-func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
+func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 	eventsProps := []EventProperties{}
 
-	icalEvents := ical.Events()
-	for _, icalEvent := range icalEvents {
-		start, err := icalEvent.GetStartAt()
+	for _, icalEvent := range cal.Events() {
+		start, err := icalEvent.DateTimeStart(time.UTC)
 		if err != nil {
 			return nil, err
 		}
-		end, err := icalEvent.GetEndAt()
+		end, err := icalEvent.DateTimeEnd(time.UTC)
 		if err != nil {
 			return nil, err
 		}
@@ -37,33 +24,35 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 		var allDay bool
 		if start.Equal(end) || start.AddDate(0, 0, 1).Equal(end) {
 			allDay = true
-			var err error
-			if start, err = icalEvent.GetAllDayStartAt(); err != nil {
-				return nil, err
-			}
-
 			end = start.AddDate(0, 0, 1).Add(-time.Second)
 		}
 
-		summary := getProp(icalEvent, ics.PropertySummary)
-		description := getProp(icalEvent, ics.PropertyDescription)
-		location := getProp(icalEvent, ics.PropertyLocation)
-		url := getProp(icalEvent, ics.PropertyUrl)
+		var uid, summary, description, location, url, rrule, rdate, exdate string
 
-		// Rrules:
+		textPropsMap := map[*string]string{
+			&uid:         ical.PropUID,
+			&summary:     ical.PropSummary,
+			&description: ical.PropDescription,
+			&location:    ical.PropLocation,
+			&url:         ical.PropURL,
+			&rrule:       ical.PropRecurrenceRule,
+			&rdate:       ical.PropRecurrenceDates,
+			&exdate:      ical.PropExceptionDates,
+		}
 
-		rrule := getProp(icalEvent, ics.PropertyRrule)
-
-		rdate := getProp(icalEvent, ics.PropertyRdate)
-
-		exdate := getProp(icalEvent, ics.PropertyExdate)
+		for dest, propName := range textPropsMap {
+			prop := icalEvent.Props.Get(propName)
+			if prop != nil {
+				*dest = prop.Value
+			}
+		}
 
 		// Ignore errors for these, since they may not exist.
-		created, _ := parseIcalTime(getProp(icalEvent, ics.PropertyCreated))
-		modified, _ := parseIcalTime(getProp(icalEvent, ics.PropertyLastModified))
+		created, _ := icalEvent.Props.DateTime(ical.PropCreated, time.UTC)
+		modified, _ := icalEvent.Props.DateTime(ical.PropLastModified, time.UTC)
 
 		props := EventProperties{
-			Uid:         icalEvent.Id(),
+			Uid:         uid,
 			Summary:     summary,
 			Description: description,
 			Location:    location,
@@ -81,41 +70,59 @@ func FromIcal(ical *ics.Calendar) ([]EventProperties, error) {
 	return eventsProps, nil
 }
 
-func ToIcal(events []Event) *ics.Calendar {
-	cal := ics.NewCalendar()
-	cal.SetProductId("-//ian//ian calendar migration")
+func ToIcal(events []Event) *ical.Calendar {
+	cal := ical.NewCalendar()
+	cal.Props.SetText(ical.PropProductID, "-//ian//ian calendar migration")
 	now := time.Now()
 
 	for _, event := range events {
-		icalEvent := ics.NewEvent(event.Props.Uid)
+		icalEvent := ical.NewEvent()
 
-		icalEvent.SetCreatedTime(event.Props.Created)
-		icalEvent.SetModifiedAt(event.Props.Created)
+		icalEvent.Props.SetText(ical.PropUID, event.Props.Uid)
 
-		icalEvent.SetDtStampTime(now)
+		icalEvent.Props.SetDateTime(ical.PropCreated, event.Props.Created)
+		icalEvent.Props.SetDateTime(ical.PropLastModified, event.Props.Modified)
 
-		icalEvent.SetStartAt(event.Props.Start)
-		icalEvent.SetEndAt(event.Props.End)
+		icalEvent.Props.SetDateTime(ical.PropDateTimeStamp, now)
 
-		icalEvent.SetSummary(event.Props.Summary)
+		icalEvent.Props.SetDateTime(ical.PropDateTimeStart, event.Props.Start)
+		icalEvent.Props.SetDateTime(ical.PropDateTimeEnd, event.Props.End)
 
-    optionalProps := map[string]func(string, ...ics.PropertyParameter) {
-      event.Props.Description: icalEvent.SetDescription,
-      event.Props.Location: icalEvent.SetLocation,
-      event.Props.Url: icalEvent.SetURL,
-      event.Props.Recurrence.RRule: icalEvent.AddRrule,
-      event.Props.Recurrence.RDate: icalEvent.AddRdate,
-      event.Props.Recurrence.ExDate: icalEvent.AddExdate,
-    }
+		icalEvent.Props.SetText(ical.PropSummary, event.Props.Summary)
 
-    for value, f := range optionalProps {
-      if value != "" {
-        f(value)
-      }
-    }
+		optionalProps := map[string]string{
+			event.Props.Description:       ical.PropDescription,
+			event.Props.Location:          ical.PropLocation,
+			event.Props.Url:               ical.PropURL,
+			event.Props.Recurrence.RRule:  ical.PropRecurrenceRule,
+			event.Props.Recurrence.RDate:  ical.PropRecurrenceDates,
+			event.Props.Recurrence.ExDate: ical.PropExceptionDates,
+		}
 
-		cal.AddVEvent(icalEvent)
+		for value, assignAs := range optionalProps {
+			if value != "" {
+				icalEvent.Props.SetText(assignAs, value)
+			}
+		}
+
+		cal.Children = append(cal.Children, icalEvent.Component)
 	}
 
 	return cal
+}
+
+func ParseIcal(r io.Reader) (*ical.Calendar, error) {
+	ics, err := ical.NewDecoder(r).Decode()
+	if err != nil {
+		return nil, err
+	}
+	return ics, nil
+}
+
+func SerializeIcal(ics *ical.Calendar) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := ical.NewEncoder(&buf).Encode(ics); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

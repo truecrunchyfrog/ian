@@ -1,4 +1,5 @@
-* replace arran4/golang-ical with emersion/go-ical
+* remove AllDay property and instead create a function for it
+* make END property non-inclusive and remove the -time.Second subtractions
 * implement CalDAV server
 * implement CalDAV client
 * migration: allow user to export/import calendars from/to ical, without adding as source. instead, use a command to migrate the ical file and provide a destination directory. also allow it the other way - exporting a native ian calendar to an ical. this will be more standalone than using sources, with more freedom of choice. this will work in tandem with archiving.

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	ics "github.com/arran4/golang-ical"
 )
 
 const CacheDirName string = "sources"
@@ -62,11 +61,11 @@ func (i *CalendarSource) Import(name string) ([]EventProperties, error) {
 			return nil, fmt.Errorf("source '%s' HTTP request failed: %s", name, resp.Status)
 		}
 		defer resp.Body.Close()
-		ical, err := ics.ParseCalendar(resp.Body)
+		ics, err := ParseIcal(resp.Body)
 		if err != nil {
 			return nil, err
 		}
-		cal, err := FromIcal(ical)
+		cal, err := FromIcal(ics)
 		if err != nil {
 			return nil, err
 		}

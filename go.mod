@@ -4,11 +4,13 @@ go 1.22.4
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/arran4/golang-ical v0.3.0 // indirect
 	github.com/bytedance/sonic v1.11.9 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
+	github.com/emersion/go-ical v0.0.0-20240127095438-fc1c9d8fb2b6 // indirect
 	github.com/emersion/go-webdav v0.5.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.4 // indirect
