@@ -147,9 +147,9 @@ func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 
 	if current.YearDay() != lastShownDate.YearDay() || current.Year() != lastShownDate.Year() {
 		if current.Year() != lastShownDate.Year() {
-      if !lastShownDate.IsZero() {
-        year += fmt.Sprintf("%7s\n", "")
-      }
+			if !lastShownDate.IsZero() {
+				year += fmt.Sprintf("%7s\n", "")
+			}
 			year += fmt.Sprintf("%-7s\n", current.Format("2006"))
 		}
 		if current.Month() != lastShownDate.Month() || current.Year() != lastShownDate.Year() {
@@ -188,7 +188,7 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 
 		start := entry.event.Props.Start.In(location)
 		end := entry.event.Props.End.In(location)
-		if !entry.event.Props.AllDay || entry.event.Props.Start.Location() != location {
+		if !entry.event.Props.IsAllDay() || entry.event.Props.Start.Location() != location {
 			startFmt = start.Format("15")
 			if start.Minute() != 0 {
 				startFmt += start.Format(":04")
@@ -222,7 +222,7 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 		// Children
 		output += "\n" + displayEntry(instance, child, lastShownDate, location)
 	}
-	if entry.event != nil && (len(entry.children) != 0 || entry.event.Props.Start.In(location).Day() != entry.event.Props.End.In(location).Day()) {
+	if entry.event != nil && (len(entry.children) != 0 || entry.event.Props.Start.In(location).Day() != entry.event.Props.End.In(location).Add(-time.Second).Day()) {
 		// Tail
 
 		pipes := displayPipes(instance, entry)

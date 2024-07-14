@@ -1,19 +1,57 @@
 package ian
 
 import (
+	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 )
 
 var Verbose bool
 
-// SanitizePath escapes a string path. It prevents root traversal (/) and parent traversal (..), and just cleans it too.
-func SanitizePath(path string) string {
-	return filepath.Join("/", path)[1:]
+var TimeZone *time.Location
+
+func GetTimeZone() *time.Location {
+	if TimeZone != nil {
+		return TimeZone
+	}
+
+	timeZoneFlag := viper.GetString("timezone")
+
+	if timeZoneFlag == "" {
+		return time.Local
+	}
+
+	t1, err := time.Parse("MST", timeZoneFlag)
+
+	if err == nil {
+		TimeZone = t1.Location()
+	} else {
+		t2, err := time.Parse("-0700", timeZoneFlag)
+		if err != nil {
+			log.Fatal("invalid time zone '" + timeZoneFlag + "'")
+		}
+
+		TimeZone = t2.Location()
+	}
+
+	return TimeZone
+}
+
+// SanitizeFilepath escapes a filepath. It prevents root traversal (/) and parent traversal (..), and just cleans it too.
+func SanitizeFilepath(p string) string {
+	return strings.TrimPrefix(filepath.Join(string(filepath.Separator), p), string(filepath.Separator))
+}
+
+// SanitizePath escapes a path. It prevents root traversal (/) and parent traversal (..), and just cleans it too.
+func SanitizePath(p string) string {
+	return strings.TrimPrefix(path.Join("/", p), "/")
 }
 
 func CreateDir(name string) error {

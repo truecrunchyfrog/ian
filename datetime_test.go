@@ -42,7 +42,7 @@ func TestIsTimeWithinPeriod(t *testing.T) {
 			"on end border",
 			r.Add(5),
 			TimeRange{r.Add(0), r.Add(5)},
-			true,
+			false, // because end is non-inclusive
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestDoPeriodsMeet(t *testing.T) {
 			"edge 1",
 			TimeRange{r.Add(0), r.Add(1)},
 			TimeRange{r.Add(1), r.Add(2)},
-			true,
+			false, // because end is non-inclusive
 		},
 		{
 			//      s1111e
@@ -98,7 +98,7 @@ func TestDoPeriodsMeet(t *testing.T) {
 			"edge 2",
 			TimeRange{r.Add(1), r.Add(2)},
 			TimeRange{r.Add(0), r.Add(1)},
-			true,
+			false, // because end is non-inclusive
 		},
 		{
 			//        s1111e

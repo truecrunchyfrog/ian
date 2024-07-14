@@ -16,7 +16,7 @@ const copyFlag string = "copy"
 const updateUidFlag string = "update-uid"
 
 func init() {
-  editCmd.Flags().String(copyFlag, "", "Copy the event to the `destination` path.")
+  editCmd.Flags().String(copyFlag, "", "Copy the event to the `destination` path, along with the changes.")
   editCmd.Flags().Bool(updateUidFlag, false, "Update the UID of an event.")
 
 	eventPropsCmd.AddCommand(editCmd)
@@ -64,7 +64,6 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		eventFlag_Summary,
 		eventFlag_Start,
 		eventFlag_End,
-		eventFlag_AllDay,
 		eventFlag_Description,
 		eventFlag_Location,
 		eventFlag_Url,
@@ -90,7 +89,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	}
 	if eventFlags.Changed(eventFlag_Start) { // Start
 		startString, _ := eventFlags.GetString(eventFlag_Start)
-		start, err := ian.ParseDateTime(startString, GetTimeZone())
+		start, err := ian.ParseDateTime(startString, ian.GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -98,14 +97,11 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	}
 	if eventFlags.Changed(eventFlag_End) { // End
 		endString, _ := eventFlags.GetString(eventFlag_End)
-		end, err := ian.ParseDateTime(endString, GetTimeZone())
+		end, err := ian.ParseDateTime(endString, ian.GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
 		event.Props.End = end
-	}
-	if eventFlags.Changed(eventFlag_AllDay) { // All day
-		event.Props.AllDay, _ = eventFlags.GetBool(eventFlag_AllDay)
 	}
 	if eventFlags.Changed(eventFlag_Description) { // Description
 		event.Props.Description, _ = eventFlags.GetString(eventFlag_Description)
@@ -127,7 +123,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 	if eventFlags.Changed(eventFlag_Calendar) { // Calendar (move operation)
-		oldPath := event.GetRealPath(instance)
+		oldFile := event.GetFilepath(instance)
 		newCalendar, _ := eventFlags.GetString(eventFlag_Calendar)
 		event.Path = path.Join(newCalendar, path.Base(event.Path))
     if e, _ := ian.GetEvent(&events, event.Path); e != nil {
@@ -137,7 +133,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 			log.Fatal("cannot set calendar to inside cache")
 		}
 		onWritten = append(onWritten, func() {
-			os.Remove(oldPath)
+			os.Remove(oldFile)
 		})
 		fmt.Println("note: event is being moved to another file location.")
 	}
@@ -164,7 +160,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	if len(modified) == 0 {
 		log.Fatal("no changes described. check the help page for a list of values to change.")
 	}
-	event.Props.Modified = time.Now().In(GetTimeZone())
+	event.Props.Modified = time.Now().In(ian.GetTimeZone())
 	if err := event.Props.Validate(); err != nil {
 		log.Fatalf("verification failed: %s", err)
 	}
@@ -186,7 +182,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 
 	instance.Sync(ian.SyncEvent{
 		Type:    ian.SyncEventUpdate,
-		Files:   event.GetRealPath(instance),
+		Files:   event.GetFilepath(instance),
 		Message: fmt.Sprintf("ian: edit event '%s'; %s", event.Path, strings.Join(modified, ", ")),
 	}, false, nil)
 }

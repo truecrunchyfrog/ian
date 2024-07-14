@@ -85,7 +85,7 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 	deletedFiles := []string{}
 
 	for _, deleteEvent := range deleteEvents {
-		file := deleteEvent.GetRealPath(instance)
+		file := deleteEvent.GetFilepath(instance)
 		deletedFiles = append(deletedFiles, file)
 		if err := os.Remove(file); err != nil {
 			log.Fatal(err)

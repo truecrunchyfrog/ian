@@ -13,7 +13,6 @@ const eventFlag_Calendar = "calendar"
 const eventFlag_Summary = "summary"
 const eventFlag_Start = "start"
 const eventFlag_End = "end"
-const eventFlag_AllDay = "all-day"
 const eventFlag_Description = "description"
 const eventFlag_Location = "location"
 const eventFlag_Url = "url"
@@ -36,7 +35,6 @@ func init() {
 
 	eventFlags.StringP(eventFlag_Start, "s", "", "Start date.")
 	eventFlags.StringP(eventFlag_End, "e", "", "End date.")
-	eventFlags.BoolP(eventFlag_AllDay, "a", false, "If the event should be marked as all-day.")
 	eventFlags.String(eventFlag_Rrule, "", "An RRULE expression according to iCalendar RFC 5545.")
 	eventFlags.String(eventFlag_Rdate, "", "An RDATE expression according to iCalendar RFC 5545.")
 	eventFlags.String(eventFlag_ExDate, "", "An EXDATE expression according to iCalendar RFC 5545.")

@@ -34,14 +34,14 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
   var timeRange ian.TimeRange
 
 	if len(args) >= 1 {
-		timeRange.From, err = ian.ParseDateTime(args[0], GetTimeZone())
+		timeRange.From, err = ian.ParseDateTime(args[0], ian.GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	if len(args) >= 2 {
-		timeRange.To, err = ian.ParseDateTime(args[1], GetTimeZone())
+		timeRange.To, err = ian.ParseDateTime(args[1], ian.GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
 
   events, unsatisfiedRecurrences, _ := instance.ReadEvents(timeRange)
 
-	fmt.Println(ian.DisplayTimeline(instance, events, GetTimeZone()))
+	fmt.Println(ian.DisplayTimeline(instance, events, ian.GetTimeZone()))
   fmt.Println(ian.DisplayUnsatisfiedRecurrences(instance, unsatisfiedRecurrences))
 
 	if !noLegend {

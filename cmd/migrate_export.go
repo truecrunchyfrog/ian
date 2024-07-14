@@ -105,7 +105,7 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
     if err != nil {
       log.Fatal(err)
     }
-		if err := os.WriteFile(fileDest, out, 0644); err != nil {
+		if err := os.WriteFile(fileDest, out.Bytes(), 0644); err != nil {
 			log.Fatal(err)
 		}
 	} else if cmd.Flags().Changed("directory") {
@@ -136,7 +136,7 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
       if err != nil {
         log.Fatal(err)
       }
-			if err := os.WriteFile(filepath.Join(dirDest, filename), out, 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(dirDest, filename), out.Bytes(), 0644); err != nil {
 				log.Fatal(err)
 			}
 		}

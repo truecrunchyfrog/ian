@@ -26,22 +26,21 @@ func (instance *Instance) Work() error {
 }
 
 func (instance *Instance) clearDir(name string) error {
-	return os.RemoveAll(filepath.Join(instance.Root, SanitizePath(name)))
+	return os.RemoveAll(filepath.Join(instance.Root, SanitizeFilepath(name)))
 }
 
 // CreateEvent creates an event in the instance.
 // containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
 func (instance *Instance) CreateEvent(props EventProperties, containerDir string) (*Event, error) {
-	containerDir = SanitizePath(containerDir)
-
-	path, err := instance.getAvailableFilepath(
-		filepath.Join(containerDir, SanitizePath(props.FormatName())))
+	p, err := instance.getAvailableFilepath(filepath.FromSlash(
+		path.Join(SanitizePath(containerDir), SanitizePath(props.FormatName())),
+	))
 	if err != nil {
 		return nil, err
 	}
 
 	event := Event{
-		Path:  path,
+		Path:  filepath.ToSlash(p),
 		Props: props,
 	}
 
@@ -71,9 +70,9 @@ func (instance *Instance) getAvailableFilepath(originalPath string) (string, err
 	}
 }
 
-func (instance *Instance) readEvent(relPath string) (Event, error) {
+func (instance *Instance) ReadEvent(relPath string) (Event, error) {
 	relPath = SanitizePath(relPath)
-	path := filepath.Join(instance.Root, relPath)
+	path := filepath.Join(instance.Root, filepath.FromSlash(relPath))
 
 	props, err := parseEventFile(path)
 	if err != nil {
@@ -194,7 +193,7 @@ func (instance *Instance) readDir(dir string) ([]Event, error) {
 			continue
 		}
 
-		event, err := instance.readEvent(relPath)
+		event, err := instance.ReadEvent(relPath)
 		if err != nil {
 			log.Printf("warning: event '%s' failed and was ignored: %s\n", path, err)
 			continue

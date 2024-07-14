@@ -57,17 +57,16 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("'end', 'hours' and 'duration' are mutually exclusive")
 	}
 
-	startDate, err := ian.ParseDateTime(start, GetTimeZone())
+	startDate, err := ian.ParseDateTime(start, ian.GetTimeZone())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var endDate time.Time
-	var allDay bool
 	switch {
 	case end != "":
 		var err error
-		endDate, err = ian.ParseDateTime(end, GetTimeZone())
+		endDate, err = ian.ParseDateTime(end, ian.GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -78,19 +77,21 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 			log.Fatal(err)
 		}
 	default:
+    // No end date provided.
 		if h, m, s := startDate.Clock(); h+m+s == 0 {
-			endDate = startDate.AddDate(0, 0, 1).Add(-time.Second)
-			allDay = true
+      // Start date had no time, so count it as the full day.
+			endDate = startDate.AddDate(0, 0, 1)
 		} else {
+      // Start date did have time, so add 1 hour.
 			endDate = startDate.Add(time.Hour)
 		}
 	}
 
-  rrule, _ := eventFlags.GetString(eventFlag_Rrule)
-  rdate, _ := eventFlags.GetString(eventFlag_Rdate)
-  exdate, _ := eventFlags.GetString(eventFlag_ExDate)
+	rrule, _ := eventFlags.GetString(eventFlag_Rrule)
+	rdate, _ := eventFlags.GetString(eventFlag_Rdate)
+	exdate, _ := eventFlags.GetString(eventFlag_ExDate)
 
-	now := time.Now().In(GetTimeZone())
+	now := time.Now().In(ian.GetTimeZone())
 
 	props := ian.EventProperties{
 		Uid:         ian.GenerateUid(),
@@ -100,14 +101,13 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		Url:         url,
 		Start:       startDate,
 		End:         endDate,
-		AllDay:      allDay,
-		Recurrence:  ian.Recurrence{
+		Recurrence: ian.Recurrence{
 			RRule:  rrule,
 			RDate:  rdate,
 			ExDate: exdate,
 		},
-		Created:     now,
-		Modified:    now,
+		Created:  now,
+		Modified: now,
 	}
 
 	if err := props.Validate(); err != nil {
@@ -139,7 +139,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 
 	instance.Sync(ian.SyncEvent{
 		Type:    ian.SyncEventCreate,
-		Files:   event.GetRealPath(instance),
+		Files:   event.GetFilepath(instance),
 		Message: fmt.Sprintf("ian: create event '%s'", event.Path),
 	}, false, nil)
 }

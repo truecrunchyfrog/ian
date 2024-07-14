@@ -194,22 +194,22 @@ end:
 	return output + strings.Join(parts, " ")
 }
 
+// IsTimeWithinPeriod returns true if the start of t is at or after (i.e. inclusive) the start of period,
+// and the end of t is before (i.e. non-inclusive) the end of period.
 func IsTimeWithinPeriod(t time.Time, period TimeRange) bool {
 	if period.From.After(period.To) {
 		panic("invalid timerange")
 	}
-	return t.Compare(period.From) != -1 && t.Compare(period.To) != 1
+	return !t.Before(period.From) && t.Before(period.To)
 }
 
-// IsPeriodConfinedToPeriod returns true if period1 start and end is within period2.
+// IsPeriodConfinedToPeriod returns true if period1 start is at or after (i.e. inclusive) period2 start, and period1 end is before (i.e. non-inclusive) period2 end.
 func IsPeriodConfinedToPeriod(period1, period2 TimeRange) bool {
 	return IsTimeWithinPeriod(period1.From, period2) && IsTimeWithinPeriod(period1.To, period2)
 }
 
-// DoPeriodsMeet compares two periods and returns true if they collide at some point, otherwise false.
+// DoPeriodsMeet compares two periods and returns true if they collide at some point, otherwise false. Period ends are non-inclusive, meaning that if one period's end touches the start of the other period, it does not count.
 func DoPeriodsMeet(period1, period2 TimeRange) bool {
 	return IsTimeWithinPeriod(period1.From, period2) ||
-		IsTimeWithinPeriod(period1.To, period2) ||
-		IsTimeWithinPeriod(period2.From, period1) ||
-		IsTimeWithinPeriod(period2.To, period1)
+		IsTimeWithinPeriod(period2.From, period1)
 }

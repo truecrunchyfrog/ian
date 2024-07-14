@@ -12,19 +12,18 @@ func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 	eventsProps := []EventProperties{}
 
 	for _, icalEvent := range cal.Events() {
-		start, err := icalEvent.DateTimeStart(time.UTC)
+		start, err := icalEvent.DateTimeStart(GetTimeZone())
 		if err != nil {
 			return nil, err
 		}
-		end, err := icalEvent.DateTimeEnd(time.UTC)
+		end, err := icalEvent.DateTimeEnd(GetTimeZone())
 		if err != nil {
 			return nil, err
 		}
 
-		var allDay bool
-		if start.Equal(end) || start.AddDate(0, 0, 1).Equal(end) {
-			allDay = true
-			end = start.AddDate(0, 0, 1).Add(-time.Second)
+		if h, m, s := start.Clock(); h+m+s == 0 && start.Equal(end) {
+			// Event is an *alternatively* formatted all-day event.
+			end = start.AddDate(0, 0, 1)
 		}
 
 		var uid, summary, description, location, url, rrule, rdate, exdate string
@@ -48,8 +47,8 @@ func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 		}
 
 		// Ignore errors for these, since they may not exist.
-		created, _ := icalEvent.Props.DateTime(ical.PropCreated, time.UTC)
-		modified, _ := icalEvent.Props.DateTime(ical.PropLastModified, time.UTC)
+		created, _ := icalEvent.Props.DateTime(ical.PropCreated, GetTimeZone())
+		modified, _ := icalEvent.Props.DateTime(ical.PropLastModified, GetTimeZone())
 
 		props := EventProperties{
 			Uid:         uid,
@@ -59,7 +58,6 @@ func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 			Url:         url,
 			Start:       start,
 			End:         end,
-			AllDay:      allDay,
 			Recurrence:  Recurrence{rrule, rdate, exdate},
 			Created:     created,
 			Modified:    modified,
@@ -72,6 +70,7 @@ func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 
 func ToIcal(events []Event) *ical.Calendar {
 	cal := ical.NewCalendar()
+	cal.Props.SetText(ical.PropVersion, "2.0")
 	cal.Props.SetText(ical.PropProductID, "-//ian//ian calendar migration")
 	now := time.Now()
 
@@ -85,8 +84,13 @@ func ToIcal(events []Event) *ical.Calendar {
 
 		icalEvent.Props.SetDateTime(ical.PropDateTimeStamp, now)
 
-		icalEvent.Props.SetDateTime(ical.PropDateTimeStart, event.Props.Start)
-		icalEvent.Props.SetDateTime(ical.PropDateTimeEnd, event.Props.End)
+		if !event.Props.IsAllDay() {
+			icalEvent.Props.SetDateTime(ical.PropDateTimeStart, event.Props.Start)
+			icalEvent.Props.SetDateTime(ical.PropDateTimeEnd, event.Props.End)
+		} else {
+			icalEvent.Props.SetDate(ical.PropDateTimeStart, event.Props.Start)
+			icalEvent.Props.SetDate(ical.PropDateTimeEnd, event.Props.Start.AddDate(0, 0, 1))
+		}
 
 		icalEvent.Props.SetText(ical.PropSummary, event.Props.Summary)
 
@@ -119,10 +123,10 @@ func ParseIcal(r io.Reader) (*ical.Calendar, error) {
 	return ics, nil
 }
 
-func SerializeIcal(ics *ical.Calendar) ([]byte, error) {
+func SerializeIcal(ics *ical.Calendar) (bytes.Buffer, error) {
 	var buf bytes.Buffer
 	if err := ical.NewEncoder(&buf).Encode(ics); err != nil {
-		return nil, err
+		return bytes.Buffer{}, err
 	}
-	return buf.Bytes(), nil
+	return buf, nil
 }

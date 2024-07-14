@@ -202,7 +202,7 @@ func (instance *Instance) getCacheDir() string {
 }
 
 func (instance *Instance) CacheEvent(name string, props EventProperties) error {
-	_, err := instance.CreateEvent(props, filepath.Join(CacheDirName, SanitizePath(name)))
+	_, err := instance.CreateEvent(props, filepath.Join(CacheDirName, SanitizeFilepath(name)))
 	return err
 }
 

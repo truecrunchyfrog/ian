@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -24,8 +25,8 @@ const (
 
 type Event struct {
 	// Path to event file relative to root.
-	// Use `filepath.Rel(root, filename)`.
-	Path  string // TODO make path the same on all platforms (filepath.ToSlash()/FromSlash())
+	// Use `filepath.ToSlash(filepath.Rel(root, filename))`.
+	Path  string
 	Props EventProperties
 	Type  EventType
 	// Constant is true if the event should not be changed. Used for source events (cache) or the event is generated from a recurrance (RRule).
@@ -34,12 +35,12 @@ type Event struct {
 	Parent *Event
 }
 
-func (event *Event) GetRealPath(instance *Instance) string {
-	return filepath.Join(instance.Root, event.Path)
+func (event *Event) GetFilepath(instance *Instance) string {
+	return filepath.Join(instance.Root, filepath.FromSlash(event.Path))
 }
 
 func (event *Event) GetCalendarName() string {
-	return filepath.Dir(event.Path)
+	return SanitizePath(path.Dir(event.Path))
 }
 
 // Write writes the event to the appropriate location in 'instance'.
@@ -50,7 +51,7 @@ func (event *Event) Write(instance *Instance) error {
 		return err
 	}
 
-	path := event.GetRealPath(instance)
+	path := event.GetFilepath(instance)
 	CreateDir(filepath.Dir(path)) // Create parent folder(s) leading to path.
 
 	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
@@ -72,9 +73,10 @@ type EventProperties struct {
 	Location    string
 	Url         string
 
-	Start  time.Time
-	End    time.Time
-	AllDay bool
+	// Start is an inclusive datetime representing when the event begins.
+	Start time.Time
+	// End is a non-inclusive datetime representing when the event ends.
+	End time.Time
 
 	Recurrence Recurrence
 
@@ -123,6 +125,12 @@ func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
 	return set, nil
 }
 
+func (props *EventProperties) IsAllDay() bool {
+	h, m, s := props.Start.Clock()
+	h2, m2, s2 := props.End.Clock()
+	return h == 0 && m == 0 && s == 0 && h2 == 0 && m2 == 0 && s2 == 0
+}
+
 func (props *EventProperties) GetTimeRange() TimeRange {
 	return TimeRange{
 		From: props.Start,
@@ -143,36 +151,26 @@ func (p *EventProperties) Validate() error {
 		return errors.New("start cannot be chronologically after end")
 	case p.Created.After(p.Modified):
 		return errors.New("created cannot be chronologically after modified")
-	case p.AllDay:
-		if !p.Start.Equal(time.Date(p.Start.Year(), p.Start.Month(), p.Start.Day(), 0, 0, 0, 0, p.Start.Location())) {
-			return errors.New("all-day event start must be at midnight")
-		}
-		if !p.Start.AddDate(0, 0, 1).Add(-time.Second).Equal(p.End) {
-			return errors.New("all-day event end must be exactly 24 hours minus 1 second after start")
-		}
 	}
 
 	return nil
 }
 
 func (props *EventProperties) FormatName() string {
-	name := props.Summary
-	//name = strings.ToLower(name)
-	name = strings.ReplaceAll(name, "/", "-")
-	name = strings.ReplaceAll(name, `\`, "-")
-	//name = strings.ReplaceAll(name, " ", "-")
-	name = strings.ReplaceAll(name, ".", "_")
-
-	return name
+	return strings.NewReplacer(
+		"/", "-",
+		`\`, "-",
+		".", "_",
+	).Replace(props.Summary)
 }
 
-func GetEvent(events *[]Event, relPath string) (*Event, error) {
+func GetEvent(events *[]Event, path string) (*Event, error) {
 	for _, ev := range *events {
-		if ev.Path == relPath {
+		if ev.Path == path {
 			return &ev, nil
 		}
 	}
-	return nil, fmt.Errorf("no such event '%s'", relPath)
+	return nil, fmt.Errorf("no such event '%s'", path)
 }
 
 func FilterEvents(events *[]Event, filter func(*Event) bool) []Event {

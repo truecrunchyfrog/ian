@@ -16,7 +16,6 @@ func TestMigrateToThenFromIcal(t *testing.T) {
 		Url:         "url",
 		Start:       now,
 		End:         now.Add(5 * time.Hour),
-		AllDay:      false,
 		Recurrence: Recurrence{
 			RRule: "FREQ=DAILY;INTERVAL=3;COUNT=12",
 		},

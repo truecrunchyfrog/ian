@@ -41,35 +41,6 @@ func GetRoot() string {
 	return dir
 }
 
-var TimeZone *time.Location
-
-func GetTimeZone() *time.Location {
-	if TimeZone != nil {
-		return TimeZone
-	}
-
-	timeZoneFlag := viper.GetString("timezone")
-
-	if timeZoneFlag == "" {
-		return time.Local
-	}
-
-	t1, err := time.Parse("MST", timeZoneFlag)
-
-	if err == nil {
-		TimeZone = t1.Location()
-	} else {
-		t2, err := time.Parse("-0700", timeZoneFlag)
-		if err != nil {
-			log.Fatal("invalid time zone '" + timeZoneFlag + "'")
-		}
-
-		TimeZone = t2.Location()
-	}
-
-	return TimeZone
-}
-
 func checkCollision(events *[]ian.Event, props ian.EventProperties) {
 	if !ignoreCollisionWarnings || noCollision {
 		collidingEvents := ian.FilterEvents(events, func(e *ian.Event) bool {
@@ -166,7 +137,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("invalid daywidth size (must be within the bounds of 2-100)")
 	}
 
-	now := time.Now().In(GetTimeZone())
+	now := time.Now().In(ian.GetTimeZone())
 
 	year := now.Year()
 	month := int(now.Month())
@@ -192,11 +163,11 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	var monthRange ian.TimeRange
 	if month != int(now.Month()) || viper.GetBool("past") {
-		monthRange.From = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, GetTimeZone())
+		monthRange.From = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, ian.GetTimeZone())
 	} else {
-		monthRange.From = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, GetTimeZone())
+		monthRange.From = time.Date(year, time.Month(month), now.Day(), 0, 0, 0, 0, ian.GetTimeZone())
 	}
-	monthRange.To = time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, GetTimeZone()).Add(-time.Second)
+	monthRange.To = time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, ian.GetTimeZone())
 
 	var events []ian.Event
 
@@ -213,7 +184,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	var leftSide, rightSide []string
 
 	leftSide = strings.Split(ian.DisplayCalendar(
-		GetTimeZone(),
+		ian.GetTimeZone(),
 		year,
 		time.Month(month),
 		now,
@@ -228,8 +199,8 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			}
 			if !emptyCalendar && !viper.GetBool("no-event-coloring") {
 				var dayRange ian.TimeRange
-				dayRange.From = time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, GetTimeZone())
-				dayRange.To = dayRange.From.AddDate(0, 0, 1).Add(-time.Second)
+				dayRange.From = time.Date(year, time.Month(month), monthDay, 0, 0, 0, 0, ian.GetTimeZone())
+				dayRange.To = dayRange.From.AddDate(0, 0, 1)
 				eventsInDay := []*ian.Event{}
 				for _, event := range events {
 					if ian.DoPeriodsMeet(event.Props.GetTimeRange(), dayRange) {
@@ -265,7 +236,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}), "\n")
 
 	if !emptyCalendar && !viper.GetBool("no-timeline") {
-		rightSide = strings.Split(ian.DisplayTimeline(instance, events, GetTimeZone()), "\n")
+		rightSide = strings.Split(ian.DisplayTimeline(instance, events, ian.GetTimeZone()), "\n")
 	}
 
 	if !emptyCalendar && !viper.GetBool("no-legend") {
