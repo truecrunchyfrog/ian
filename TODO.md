@@ -7,7 +7,7 @@
 * create benchmarks and tests
 * archiving
 * create busy/free system and replace the "collision" system with it. check out event tranparency (TRANSP).
-* event statuses.
+* event statuses
 * make showing an individual day's events easier (and a shorthand for today 'ian today' / 'ian now')
 * make source usage safer; dont overwrite a calendar before you have it, and handle unavailable calendars better (allow them, but warn).
 * vcard implementation?

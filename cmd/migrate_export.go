@@ -100,7 +100,7 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 
 	if cmd.Flags().Changed("file") {
 		fileDest, _ := cmd.Flags().GetString("file")
-		ics := ian.ToIcal(events)
+		ics := ian.ToIcal(events, "")
     out, err := ian.SerializeIcal(ics)
     if err != nil {
       log.Fatal(err)
@@ -131,7 +131,7 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 				"-", "",
 				"/", "-",
 			).Replace(cal) + ".ics"
-			ics := ian.ToIcal(events)
+			ics := ian.ToIcal(events, "")
       out, err := ian.SerializeIcal(ics)
       if err != nil {
         log.Fatal(err)
@@ -141,7 +141,7 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 			}
 		}
 	} else {
-    ics := ian.ToIcal(events)
+    ics := ian.ToIcal(events, "")
     out, err := ian.SerializeIcal(ics)
     if err != nil {
       log.Fatal(err)

@@ -68,10 +68,15 @@ func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 	return eventsProps, nil
 }
 
-func ToIcal(events []Event) *ical.Calendar {
+func ToIcal(events []Event, calendarName string) *ical.Calendar {
 	cal := ical.NewCalendar()
 	cal.Props.SetText(ical.PropVersion, "2.0")
 	cal.Props.SetText(ical.PropProductID, "-//ian//ian calendar migration")
+
+  if calendarName != "" {
+    cal.Props.SetText("X-WR-NAME", calendarName)
+  }
+
 	now := time.Now()
 
 	for _, event := range events {

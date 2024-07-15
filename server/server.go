@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -61,71 +62,122 @@ func (backend CalDavBackend) CurrentUserPrincipal(ctx context.Context) (string, 
 	return "default", nil
 }
 func (backend CalDavBackend) DeleteCalendarObject(ctx context.Context, path string) error {
-	log.Printf("tried to delete object %s\n", path)
+	backend.logger.Printf("tried to delete object %s\n", path)
 	return nil
 }
 func (backend CalDavBackend) GetCalendar(ctx context.Context, path string) (*caldav.Calendar, error) {
-	log.Printf("tried to get calendar %s\n", path)
+	backend.logger.Printf("tried to get calendar %s\n", path)
 	return nil, nil
 }
 func (backend CalDavBackend) GetCalendarObject(ctx context.Context, path string, req *caldav.CalendarCompRequest) (*caldav.CalendarObject, error) {
-  cal := ian.SanitizePath(path)
+  backend.logger.Printf("getting cal obj %s\n", path)
 
-	log.Printf("tried to read calendar %s with %v\n", cal, *req)
+	cal := ian.SanitizePath(path)
 
 	events, _, err := backend.instance.ReadEvents(ian.TimeRange{})
 	if err != nil {
 		return nil, err
 	}
 
-  events = ian.FilterEvents(&events, func(e *ian.Event) bool {
-    return e.GetCalendarName() == cal
-  })
+	events = ian.FilterEvents(&events, func(e *ian.Event) bool {
+		return e.GetCalendarName() == cal
+	})
 
-  var lastModified time.Time
+	var lastModified time.Time
 
-  for _, event := range events {
-    if mod := event.Props.Modified; mod.After(lastModified) {
-      lastModified = mod
-    }
+	for _, event := range events {
+		if mod := event.Props.Modified; mod.After(lastModified) {
+			lastModified = mod
+		}
+	}
+
+  var calName string
+  if cal != "" {
+    calName = cal
+  } else {
+    calName = "main"
   }
 
-	ics := ian.ToIcal(events)
-  b, err := ian.SerializeIcal(ics)
-  if err != nil {
-    return nil, err
-  }
-  length := b.Len()
-  h := sha1.New()
-  if _, err := b.WriteTo(h); err != nil {
-    return nil, err
-  }
-  csum := h.Sum(nil)
+	ics := ian.ToIcal(events, calName)
+	b, err := ian.SerializeIcal(ics)
+	if err != nil {
+		return nil, err
+	}
+
+	length := b.Len()
+
+	h := sha1.New()
+	if _, err := b.WriteTo(h); err != nil {
+		return nil, err
+	}
+	csum := h.Sum(nil)
 
 	calObj := caldav.CalendarObject{
 		Path:          path,
 		ModTime:       lastModified,
 		ContentLength: int64(length),
-    ETag:          base64.StdEncoding.EncodeToString(csum[:]),
+		ETag:          base64.StdEncoding.EncodeToString(csum[:]),
 		Data:          ics,
 	}
 
 	return &calObj, nil
 }
 func (backend CalDavBackend) ListCalendarObjects(ctx context.Context, path string, req *caldav.CalendarCompRequest) ([]caldav.CalendarObject, error) {
-	log.Printf("tried to list objects in %s with %v\n", path, *req)
+	backend.logger.Printf("tried to list objects in %s with %v\n", path, *req)
 	return nil, nil
 }
 func (backend CalDavBackend) ListCalendars(ctx context.Context) ([]caldav.Calendar, error) {
-	log.Println("tried to list calendars")
+	backend.logger.Println("tried to list calendars")
 	return []caldav.Calendar{}, nil
 }
 func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string, calendar *ical.Calendar, opts *caldav.PutCalendarObjectOptions) (loc string, err error) {
-	log.Printf("tried to put object %s in calendar %v with %v\n", path, *calendar, *opts)
+  // TODO implement etag thing with opts
+  cal := ian.SanitizePath(path)
+
+  // events are the current events.
+  events, _, err := backend.instance.ReadEvents(ian.TimeRange{})
+  events = ian.FilterEvents(&events, func(e *ian.Event) bool {
+    return e.GetCalendarName() == cal
+  })
+
+  // proposedEvents are the set of events with changes proposed by the request.
+  proposedEvents, err := ian.FromIcal(calendar)
+  if err != nil {
+    return "", err
+  }
+
+  // updatedEvents contains existing and changed events and added events.
+  updatedEvents := []ian.Event{}
+  deleteEvents := []ian.Event{}
+
+  for _, event := range events {
+    i := slices.IndexFunc(proposedEvents, func(evProps ian.EventProperties) bool {
+      return evProps.Uid == event.Props.Uid
+    })
+    if i == -1 {
+      deleteEvents = append(deleteEvents, event)
+      continue
+    }
+
+    if proposedEvents[i] != event.Props {
+      updatedEvents = append(updatedEvents, event)
+    }
+  }
+
+  for _, updated := range updatedEvents {
+    println("UPDATE: " + updated.Props.Summary)
+  }
+  for _, deleted := range deleteEvents {
+    println("DELETE: " + deleted.Props.Summary)
+  }
+
+  // TODO implement actual update/delete operations here
+  // TODO also make sure that the correct things are deleted and updated, by checking etag (to see that the client knows what theyre doing)
+
 	return "", nil
 }
 func (backend CalDavBackend) QueryCalendarObjects(ctx context.Context, query *caldav.CalendarQuery) ([]caldav.CalendarObject, error) {
-	log.Printf("tried to query objects with %v\n", *query)
+	backend.logger.Printf("tried to query objects with %v\n", *query)
 	return nil, nil
 }
 
