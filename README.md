@@ -54,4 +54,4 @@ The calendar configuration, which defaults to `.ian/.config.toml`, is a lot more
 
 This configuration houses how your calendar works, like subscribed calendars, synchronization hooks, etc.
 
-If you will be running an ian server, it is all configured in this file, meaning this file is shared across client and server.
+If you will be running an ian server, it is all configured in this file, meaning this file is shared between both client and server.
