@@ -8,7 +8,7 @@ A server allows you to centralize your events, instead of using your pocket cale
 Events are stored in a (probably version controlled) directory, with subdirectories for each calendar.
 Each event is its own TOML file, which makes manual event manipulation easy.
 
-This project strives for iCalendar RFC 5545 compatability (https://datatracker.ietf.org/doc/html/rfc5545).
+This project strives for [iCalendar RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) compatability.
 
 ian supports dynamic and subscribeable calendars:
 * Native ian calendars.
