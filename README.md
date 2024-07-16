@@ -1,6 +1,7 @@
+![ian logo](assets/logo-small.svg "ian")
 # ian
 
-(gregor)ian is a UNIX-oriented, file-based, raw, calendar, with a CLIent and server.
+(gregor)ian is a UNIX-oriented, file-based, raw, calendar system CLIent and server.
 ian was designed to quickly manipulate and manage personal and professional calendars.
 A server allows you to centralize your events, instead of using your pocket calendar for that.
 
