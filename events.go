@@ -184,12 +184,3 @@ func FilterEvents(events *[]Event, filter func(*Event) bool) []Event {
 
 	return filtered
 }
-
-func QueryEvents(events *[]Event, query string) []Event {
-	query = strings.ToLower(query)
-	return FilterEvents(events, func(e *Event) bool {
-		return strings.Contains(strings.ToLower(e.Path), query) ||
-			strings.Contains(strings.ToLower(e.Props.Summary), query) ||
-			strings.Contains(strings.ToLower(e.Props.Description), query)
-	})
-}

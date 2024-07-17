@@ -8,59 +8,66 @@ import (
 	"github.com/emersion/go-ical"
 )
 
+func FromIcalEvent(icalEvent ical.Event) (EventProperties, error) {
+	start, err := icalEvent.DateTimeStart(GetTimeZone())
+	if err != nil {
+		return EventProperties{}, err
+	}
+	end, err := icalEvent.DateTimeEnd(GetTimeZone())
+	if err != nil {
+		return EventProperties{}, err
+	}
+
+	if h, m, s := start.Clock(); h+m+s == 0 && start.Equal(end) {
+		// Event is an *alternatively* formatted all-day event.
+		end = start.AddDate(0, 0, 1)
+	}
+
+	var uid, summary, description, location, url, rrule, rdate, exdate string
+
+	textPropsMap := map[*string]string{
+		&uid:         ical.PropUID,
+		&summary:     ical.PropSummary,
+		&description: ical.PropDescription,
+		&location:    ical.PropLocation,
+		&url:         ical.PropURL,
+		&rrule:       ical.PropRecurrenceRule,
+		&rdate:       ical.PropRecurrenceDates,
+		&exdate:      ical.PropExceptionDates,
+	}
+
+	for dest, propName := range textPropsMap {
+		prop := icalEvent.Props.Get(propName)
+		if prop != nil {
+			*dest = prop.Value
+		}
+	}
+
+	// Ignore errors for these, since they may not exist.
+	created, _ := icalEvent.Props.DateTime(ical.PropCreated, GetTimeZone())
+	modified, _ := icalEvent.Props.DateTime(ical.PropLastModified, GetTimeZone())
+
+	return EventProperties{
+		Uid:         uid,
+		Summary:     summary,
+		Description: description,
+		Location:    location,
+		Url:         url,
+		Start:       start,
+		End:         end,
+		Recurrence:  Recurrence{rrule, rdate, exdate},
+		Created:     created,
+		Modified:    modified,
+	}, nil
+}
+
 func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 	eventsProps := []EventProperties{}
 
 	for _, icalEvent := range cal.Events() {
-		start, err := icalEvent.DateTimeStart(GetTimeZone())
+		props, err := FromIcalEvent(icalEvent)
 		if err != nil {
 			return nil, err
-		}
-		end, err := icalEvent.DateTimeEnd(GetTimeZone())
-		if err != nil {
-			return nil, err
-		}
-
-		if h, m, s := start.Clock(); h+m+s == 0 && start.Equal(end) {
-			// Event is an *alternatively* formatted all-day event.
-			end = start.AddDate(0, 0, 1)
-		}
-
-		var uid, summary, description, location, url, rrule, rdate, exdate string
-
-		textPropsMap := map[*string]string{
-			&uid:         ical.PropUID,
-			&summary:     ical.PropSummary,
-			&description: ical.PropDescription,
-			&location:    ical.PropLocation,
-			&url:         ical.PropURL,
-			&rrule:       ical.PropRecurrenceRule,
-			&rdate:       ical.PropRecurrenceDates,
-			&exdate:      ical.PropExceptionDates,
-		}
-
-		for dest, propName := range textPropsMap {
-			prop := icalEvent.Props.Get(propName)
-			if prop != nil {
-				*dest = prop.Value
-			}
-		}
-
-		// Ignore errors for these, since they may not exist.
-		created, _ := icalEvent.Props.DateTime(ical.PropCreated, GetTimeZone())
-		modified, _ := icalEvent.Props.DateTime(ical.PropLastModified, GetTimeZone())
-
-		props := EventProperties{
-			Uid:         uid,
-			Summary:     summary,
-			Description: description,
-			Location:    location,
-			Url:         url,
-			Start:       start,
-			End:         end,
-			Recurrence:  Recurrence{rrule, rdate, exdate},
-			Created:     created,
-			Modified:    modified,
 		}
 		eventsProps = append(eventsProps, props)
 	}
@@ -68,16 +75,19 @@ func FromIcal(cal *ical.Calendar) ([]EventProperties, error) {
 	return eventsProps, nil
 }
 
+const IcalPropGrabTimestamp string = "X-IAN-GRABBED"
+
 func ToIcal(events []Event, calendarName string) *ical.Calendar {
 	cal := ical.NewCalendar()
 	cal.Props.SetText(ical.PropVersion, "2.0")
 	cal.Props.SetText(ical.PropProductID, "-//ian//ian calendar migration")
 
-  if calendarName != "" {
-    cal.Props.SetText("X-WR-NAME", calendarName)
-  }
+	if calendarName != "" {
+		cal.Props.SetText("X-WR-CALNAME", calendarName)
+	}
 
 	now := time.Now()
+	cal.Props.SetDateTime(IcalPropGrabTimestamp, now)
 
 	for _, event := range events {
 		icalEvent := ical.NewEvent()

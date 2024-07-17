@@ -16,7 +16,7 @@ var updateSources []string
 func init() {
 	sourcesCmd.Flags().BoolVarP(&clean, "clean", "c", false, "Delete and update all sources.")
 	sourcesCmd.Flags().BoolVarP(&updateAll, "update-all", "U", false, "Update all lists.")
-	sourcesCmd.Flags().StringSliceVarP(&updateSources, "update", "u", []string{}, "Update a list of comma-separated source `names`. E.g.: 'ian sources --update school,home'.")
+	sourcesCmd.Flags().StringSliceVarP(&updateSources, "update", "u", nil, "Update a list of comma-separated source `names`. E.g.: 'ian sources --update school,home'.")
 	sourcesCmd.MarkFlagsMutuallyExclusive("clean", "update-all", "update")
 
 	rootCmd.AddCommand(sourcesCmd)

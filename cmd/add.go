@@ -17,7 +17,6 @@ var addCmd = &cobra.Command{
 	Use:     "add [summary] [start] [end]",
 	Aliases: []string{"a", "create", "cr", "make", "mk", "new", "n"},
 	Short:   "Create a new event",
-	Long:    "The arguments 'start' and 'end' support many different formats. The recommended format for most events is dd/mm, or dd/mm hh:mm with time. A time zone can be appended with +-hhmm or 'UTC'-like format.",
 	Args:    cobra.RangeArgs(0, 3),
 	Run:     addCmdRun,
 }
@@ -35,16 +34,18 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		eventFlags.Set(eventFlag_End, args[2])
 	}
 
-	summary, _ := eventFlags.GetString(eventFlag_Summary)
-	if summary == "" {
+	var props ian.EventProperties
+
+	props.Summary, _ = eventFlags.GetString(eventFlag_Summary)
+	if props.Summary == "" {
 		log.Fatal("'summary' cannot be empty")
 	}
+	props.Description, _ = eventFlags.GetString(eventFlag_Description)
+	props.Location, _ = eventFlags.GetString(eventFlag_Location)
+	props.Url, _ = eventFlags.GetString(eventFlag_Url)
+
 	start, _ := eventFlags.GetString(eventFlag_Start)
 	end, _ := eventFlags.GetString(eventFlag_End)
-	description, _ := eventFlags.GetString(eventFlag_Description)
-	location, _ := eventFlags.GetString(eventFlag_Location)
-	url, _ := eventFlags.GetString(eventFlag_Url)
-	calendar, _ := eventFlags.GetString(eventFlag_Calendar)
 
 	duration, err := eventFlags.GetDuration(eventFlag_Duration)
 	if err != nil {
@@ -57,58 +58,44 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("'end', 'hours' and 'duration' are mutually exclusive")
 	}
 
-	startDate, err := ian.ParseDateTime(start, ian.GetTimeZone())
+	props.Start, err = ian.ParseDateTime(start, ian.GetTimeZone())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var endDate time.Time
 	switch {
 	case end != "":
 		var err error
-		endDate, err = ian.ParseDateTime(end, ian.GetTimeZone())
+		props.End, err = ian.ParseDateTime(end, ian.GetTimeZone())
 		if err != nil {
 			log.Fatal(err)
 		}
 	case duration != 0:
-		endDate = startDate.Add(duration)
+		props.End = props.Start.Add(duration)
 	case len(hours) != 0:
-		if err := handleHours(hours, &startDate, &endDate); err != nil {
+		if err := handleHours(hours, &props.Start, &props.End); err != nil {
 			log.Fatal(err)
 		}
 	default:
-    // No end date provided.
-		if h, m, s := startDate.Clock(); h+m+s == 0 {
-      // Start date had no time, so count it as the full day.
-			endDate = startDate.AddDate(0, 0, 1)
+		// No end date provided.
+		if h, m, s := props.Start.Clock(); h+m+s == 0 {
+			// Start date had no time, so count it as the full day.
+			props.End = props.Start.AddDate(0, 0, 1)
 		} else {
-      // Start date did have time, so add 1 hour.
-			endDate = startDate.Add(time.Hour)
+			// Start date did have time, so add 1 hour.
+			props.End = props.Start.Add(time.Hour)
 		}
 	}
 
-	rrule, _ := eventFlags.GetString(eventFlag_Rrule)
-	rdate, _ := eventFlags.GetString(eventFlag_Rdate)
-	exdate, _ := eventFlags.GetString(eventFlag_ExDate)
+	props.Recurrence.RRule, _ = eventFlags.GetString(eventFlag_Rrule)
+	props.Recurrence.RDate, _ = eventFlags.GetString(eventFlag_Rdate)
+	props.Recurrence.ExDate, _ = eventFlags.GetString(eventFlag_ExDate)
+
+	props.Uid = ian.GenerateUid()
 
 	now := time.Now().In(ian.GetTimeZone())
-
-	props := ian.EventProperties{
-		Uid:         ian.GenerateUid(),
-		Summary:     summary,
-		Description: description,
-		Location:    location,
-		Url:         url,
-		Start:       startDate,
-		End:         endDate,
-		Recurrence: ian.Recurrence{
-			RRule:  rrule,
-			RDate:  rdate,
-			ExDate: exdate,
-		},
-		Created:  now,
-		Modified: now,
-	}
+	props.Created = now
+	props.Modified = now
 
 	if err := props.Validate(); err != nil {
 		log.Fatal("invalid event: ", err)
@@ -119,27 +106,31 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	events, _, _ := instance.ReadEvents(props.GetTimeRange())
+	events, _, err := instance.ReadEvents(props.GetTimeRange())
+  if err != nil {
+    log.Fatal(err)
+  }
 
 	checkCollision(&events, props)
 
-	event, err := instance.CreateEvent(props, calendar)
+	calendar, _ := eventFlags.GetString(eventFlag_Calendar)
+	event, err := instance.NewEvent(props, calendar)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	eventDuration := endDate.Sub(startDate)
-
 	fmt.Printf("%s\n\n%s (%s)\n%s\n",
 		props.Summary,
 		props.Start.Format(ian.DefaultTimeLayout),
-		ian.DurationToString(eventDuration),
+		ian.DurationToString(props.End.Sub(props.Start)),
 		props.End.Format(ian.DefaultTimeLayout),
 	)
 
-	instance.Sync(ian.SyncEvent{
+	instance.Sync(func() error {
+		return event.Write(instance)
+	}, ian.SyncEvent{
 		Type:    ian.SyncEventCreate,
-		Files:   event.GetFilepath(instance),
+		Files:   []string{event.GetFilepath(instance)},
 		Message: fmt.Sprintf("ian: create event '%s'", event.Path),
 	}, false, nil)
 }

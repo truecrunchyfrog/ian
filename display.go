@@ -66,7 +66,7 @@ func DisplayCalendar(
 	displayWeek := func(week int) string {
 		var format string
 		if _, currentWeek := today.ISOWeek(); weekHinting && currentWeek == week {
-			format = "\033[22;1;37m"
+			format = "\033[22;37m"
 		}
 		var border string
 		if borders {
@@ -181,10 +181,11 @@ func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Time, location *time.Location) string {
 	var output string
 
-	var period string
 	var startFmt, endFmt string
 	if entry.event != nil {
 		// Itself
+
+		prefix := "\033[1m"
 
 		start := entry.event.Props.Start.In(location)
 		end := entry.event.Props.End.In(location)
@@ -200,13 +201,21 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 			}
 
 			if len(entry.children) != 0 || start.Day() != end.Day() {
-				period = startFmt
+				prefix += startFmt
 			} else {
-				period = startFmt + " 🡲  " + endFmt
+				prefix += startFmt + " 🡲  " + endFmt
 			}
 		} else {
-			period = "+"
+			prefix += "+"
 		}
+
+		prefix += "\033[22m "
+
+		var suffix string
+		if entry.event.Props.Recurrence.IsThereRecurrence() {
+			suffix += " ⟳"
+		}
+		suffix += "\033[0m"
 
 		pipes := displayPipes(instance, entry)
 
@@ -216,7 +225,7 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 			entryDateLines[i] += pipes
 		}
 
-		output += strings.Join(entryDateLines, "\n") + GetEventRgbAnsiSeq(entry.event, instance, false) + "\033[1m" + period + "\033[22m " + entry.event.Props.Summary + "\033[0m"
+		output += strings.Join(entryDateLines, "\n") + GetEventRgbAnsiSeq(entry.event, instance, false) + prefix + entry.event.Props.Summary + suffix + "\033[0m"
 	}
 	for _, child := range entry.children {
 		// Children
@@ -298,7 +307,7 @@ func DisplayUnsatisfiedRecurrences(instance *Instance, unsatisfiedRecurrences []
 	var output string
 
 	for _, event := range unsatisfiedRecurrences {
-		output += fmt.Sprintf("\n%s[..]\033[0;2m there are more occurences of '%s'! \033[2mspecify a range to show more.\033[0m", GetEventRgbAnsiSeq(event, instance, true), event.Props.Summary)
+		output += fmt.Sprintf("\n%s\033[1;30m[..]\033[0;2m there are more occurences of '%s'! \033[2mspecify a range to show more.\033[0m", GetEventRgbAnsiSeq(event, instance, true), event.Props.Summary)
 	}
 
 	return output

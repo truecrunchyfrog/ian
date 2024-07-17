@@ -83,11 +83,11 @@ func parseEventFile(path string) (EventProperties, error) {
 		return EventProperties{}, err
 	}
 
-  props.Start = props.Start.Truncate(time.Second)
-  props.End = props.End.Truncate(time.Second)
+	props.Start = props.Start.Truncate(time.Second)
+	props.End = props.End.Truncate(time.Second)
 
-  props.Created = props.Created.Truncate(time.Second)
-  props.Modified = props.Modified.Truncate(time.Second)
+	props.Created = props.Created.Truncate(time.Second)
+	props.Modified = props.Modified.Truncate(time.Second)
 
 	return props, nil
 }

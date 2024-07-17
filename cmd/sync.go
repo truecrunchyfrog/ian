@@ -35,16 +35,16 @@ func syncCmdRun(cmd *cobra.Command, args []string) {
 
 	if listListeners {
 		fmt.Println("configured sync listeners:")
-		for name, listener := range instance.Config.Sync.Listeners {
-			fmt.Printf("'%s' has command '%s' with a cooldown of %s\n", name, listener.Command, ian.DurationToString(listener.Cooldown_))
+		for name, listener := range instance.Config.Hooks {
+			fmt.Printf("'%s' has command '%s' with a cooldown of %s\n", name, listener.PostCommand, ian.DurationToString(listener.Cooldown_))
 		}
 		fmt.Println("\nsync is not made when listing listeners.")
 		return
 	}
 
-	fmt.Println("syncing...\n")
+	fmt.Print("syncing...\n\n")
 
-	if err := instance.Sync(ian.SyncEvent{
+	if err := instance.Sync(func() error { return nil }, ian.SyncEvent{
 		Type:    ian.SyncEventPing,
 		Message: "ian: manual sync",
 	}, ignoreCooldowns, os.Stdout); err != nil {

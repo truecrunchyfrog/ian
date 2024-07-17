@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -70,8 +71,6 @@ func (backend CalDavBackend) GetCalendar(ctx context.Context, path string) (*cal
 	return nil, nil
 }
 func (backend CalDavBackend) GetCalendarObject(ctx context.Context, path string, req *caldav.CalendarCompRequest) (*caldav.CalendarObject, error) {
-  backend.logger.Printf("getting cal obj %s\n", path)
-
 	cal := ian.SanitizePath(path)
 
 	events, _, err := backend.instance.ReadEvents(ian.TimeRange{})
@@ -91,12 +90,12 @@ func (backend CalDavBackend) GetCalendarObject(ctx context.Context, path string,
 		}
 	}
 
-  var calName string
-  if cal != "" {
-    calName = cal
-  } else {
-    calName = "main"
-  }
+	var calName string
+	if cal != "" {
+		calName = cal
+	} else {
+		calName = "main"
+	}
 
 	ics := ian.ToIcal(events, calName)
 	b, err := ian.SerializeIcal(ics)
@@ -131,48 +130,115 @@ func (backend CalDavBackend) ListCalendars(ctx context.Context) ([]caldav.Calend
 	return []caldav.Calendar{}, nil
 }
 func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string, calendar *ical.Calendar, opts *caldav.PutCalendarObjectOptions) (loc string, err error) {
-  // TODO implement etag thing with opts
-  cal := ian.SanitizePath(path)
+	// grabbedAt is used to determine the age of the calendar the client has.
+	// Only calendar events where the modified date is not after this time may be modified.
+	grabbedAt, err := calendar.Props.DateTime(ian.IcalPropGrabTimestamp, time.UTC)
+	if err != nil {
+		return "", fmt.Errorf("missing ian property '%s' for revision\n", ian.IcalPropGrabTimestamp)
+	}
 
-  // events are the current events.
-  events, _, err := backend.instance.ReadEvents(ian.TimeRange{})
-  events = ian.FilterEvents(&events, func(e *ian.Event) bool {
-    return e.GetCalendarName() == cal
-  })
+	cal := ian.SanitizePath(path)
 
-  // proposedEvents are the set of events with changes proposed by the request.
-  proposedEvents, err := ian.FromIcal(calendar)
-  if err != nil {
-    return "", err
-  }
+	// events are the current events.
+	events, _, err := backend.instance.ReadEvents(ian.TimeRange{})
+	events = ian.FilterEvents(&events, func(e *ian.Event) bool {
+		return e.GetCalendarName() == cal
+	})
 
-  // updatedEvents contains existing and changed events and added events.
-  updatedEvents := []ian.Event{}
-  deleteEvents := []ian.Event{}
+	proposedEvents := calendar.Events()
 
-  for _, event := range events {
-    i := slices.IndexFunc(proposedEvents, func(evProps ian.EventProperties) bool {
-      return evProps.Uid == event.Props.Uid
-    })
-    if i == -1 {
-      deleteEvents = append(deleteEvents, event)
-      continue
-    }
+	var hasPut bool
 
-    if proposedEvents[i] != event.Props {
-      updatedEvents = append(updatedEvents, event)
-    }
-  }
+	for _, event := range events {
+		i := slices.IndexFunc(proposedEvents, func(evProps ical.Event) bool {
+			return evProps.Props.Get(ical.PropUID).Value == event.Props.Uid
+		})
 
-  for _, updated := range updatedEvents {
-    println("UPDATE: " + updated.Props.Summary)
-  }
-  for _, deleted := range deleteEvents {
-    println("DELETE: " + deleted.Props.Summary)
-  }
+		if i == -1 {
+			// No event match: delete.
+			if event.Props.Modified.After(grabbedAt) {
+				return "", errors.New("client wants to delete outdated event. synchronize changes first.")
+			}
 
-  // TODO implement actual update/delete operations here
-  // TODO also make sure that the correct things are deleted and updated, by checking etag (to see that the client knows what theyre doing)
+			file := event.GetFilepath(backend.instance)
+
+			err := backend.instance.Sync(func() error {
+				return os.Remove(file)
+			}, ian.SyncEvent{
+				Type:    ian.SyncEventDelete,
+				Files:   []string{file},
+				Message: fmt.Sprintf("ian: [CalDAV request] delete event: '%s'", event.Path),
+			}, false, nil)
+
+			if err != nil {
+				return "", err
+			}
+			hasPut = true
+		}
+
+		proposedEvent := proposedEvents[i]
+		modified, err := proposedEvent.Props.DateTime(ical.PropLastModified, time.UTC)
+		if err != nil {
+			return "", err
+		}
+		if !modified.Equal(event.Props.Modified) {
+			// Event match but properties changed: update.
+			if event.Props.Modified.After(grabbedAt) {
+				return "", errors.New("client wants to update outdated event. synchronize changes first.")
+			}
+
+			event.Props, err = ian.FromIcalEvent(proposedEvent)
+			if err != nil {
+				return "", err
+			}
+
+			err := backend.instance.Sync(func() error {
+				return event.Write(backend.instance)
+			}, ian.SyncEvent{
+				Type:    ian.SyncEventUpdate,
+				Files:   []string{event.GetFilepath(backend.instance)},
+				Message: fmt.Sprintf("ian: [CalDAV request] edit event '%s'", event.Path),
+			}, false, nil)
+
+			if err != nil {
+				return "", err
+			}
+			hasPut = true
+		}
+	}
+
+	if !hasPut {
+		for _, proposedEvent := range proposedEvents {
+			i := slices.IndexFunc(events, func(evProps ian.Event) bool {
+				return evProps.Props.Uid == proposedEvent.Props.Get(ical.PropUID).Value
+			})
+
+			if i == -1 {
+				// Event does not exist; create it.
+				created, err := proposedEvent.Props.DateTime(ical.PropCreated, time.UTC)
+				if err != nil {
+					return "", err
+				}
+				if created.Before(grabbedAt) {
+					return "", errors.New("event created before grab date. the event may have existed and was deleted, but not yet deleted for the client.")
+				}
+				props, err := ian.FromIcalEvent(proposedEvent)
+				if err != nil {
+					return "", err
+				}
+				event, err := backend.instance.WriteNewEvent(props, cal)
+				if err != nil {
+					return "", err
+				}
+				event.Write(backend.instance)
+				hasPut = true
+			}
+		}
+	}
+
+	if !hasPut {
+		return "", errors.New("no new/modified/deleted event")
+	}
 
 	return "", nil
 }

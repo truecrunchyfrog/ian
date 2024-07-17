@@ -247,7 +247,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	for _, line := range leftSide {
     if l := utf8.RuneCountInString(stripansi.Strip(line)); l > indent {
-			indent = l + 10
+			indent = l + 5
 		}
 	}
 

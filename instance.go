@@ -29,19 +29,27 @@ func (instance *Instance) clearDir(name string) error {
 	return os.RemoveAll(filepath.Join(instance.Root, SanitizeFilepath(name)))
 }
 
-// CreateEvent creates an event in the instance.
-// containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
-func (instance *Instance) CreateEvent(props EventProperties, containerDir string) (*Event, error) {
+// NewEvent creates an event and returns it, without writing to disk.
+func (instance *Instance) NewEvent(props EventProperties, containerDir string) (Event, error) {
 	p, err := instance.getAvailableFilepath(filepath.FromSlash(
 		path.Join(SanitizePath(containerDir), SanitizePath(props.FormatName())),
 	))
 	if err != nil {
-		return nil, err
+		return Event{}, err
 	}
 
-	event := Event{
+	return Event{
 		Path:  filepath.ToSlash(p),
 		Props: props,
+	}, nil
+}
+
+// WriteNewEvent creates an event in the instance by writing it.
+// containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
+func (instance *Instance) WriteNewEvent(props EventProperties, containerDir string) (*Event, error) {
+	event, err := instance.NewEvent(props, containerDir)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := event.Write(instance); err != nil {

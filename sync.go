@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -27,7 +28,7 @@ const (
 
 type SyncEvent struct {
 	Type    SyncEventType
-	Files   string
+	Files   []string
 	Message string
 }
 
@@ -35,16 +36,18 @@ type SyncCooldownInfo struct {
 	Cooldowns map[string]time.Time
 }
 
-// Sync is called whenever changes are made to event(s), and calls any configured commands.
-func (instance *Instance) Sync(eventInfo SyncEvent, ignoreCooldowns bool, stdout io.Writer) error {
+// Sync is called whenever changes are made to event(s), with the changes occuring in action, and calls any configured commands.
+func (instance *Instance) Sync(action func() error, eventInfo SyncEvent, ignoreCooldowns bool, stdouterr io.Writer) error {
+	var hooks map[string]Hook
+
 	var cooldownJournal *SyncCooldownInfo
 	var isJournalChanged bool
 
-	for name, listener := range instance.Config.Sync.Listeners {
-		if listener.Type == 0 || listener.Type&eventInfo.Type != 0 { // Type match
+	for name, hook := range instance.Config.Hooks {
+		if hook.Type == 0 || hook.Type&eventInfo.Type != 0 { // Type match
 			ready := true
 
-			if listener.Cooldown_ != 0 && !ignoreCooldowns {
+			if hook.Cooldown_ != 0 && !ignoreCooldowns {
 				if cooldownJournal == nil {
 					buf, err := os.ReadFile(filepath.Join(instance.Root, CooldownJournalFilename))
 					if err != nil && !os.IsNotExist(err) {
@@ -60,7 +63,7 @@ func (instance *Instance) Sync(eventInfo SyncEvent, ignoreCooldowns bool, stdout
 
 				// Don't need to check if map item exists with 'ok' because if it doesn't, lastChange will be 0 and it will work anyway.
 				lastChange := cooldownJournal.Cooldowns[name]
-				if now := time.Now(); lastChange.Add(listener.Cooldown_).Before(now) {
+				if now := time.Now(); lastChange.Add(hook.Cooldown_).Before(now) {
 					// Cooldown gone
 					cooldownJournal.Cooldowns[name] = now
 					isJournalChanged = true
@@ -71,35 +74,55 @@ func (instance *Instance) Sync(eventInfo SyncEvent, ignoreCooldowns bool, stdout
 			}
 
 			if ready {
-				if stdout != nil {
-					stdout.Write([]byte(fmt.Sprintf("\033[2m>>> BEGIN '%s'\033[22m\n", name)))
-				}
-				var cmd *exec.Cmd
-				switch runtime.GOOS {
-				case "windows":
-					cmd = exec.Command(listener.Command)
-				default:
-					cmd = exec.Command("sh", "-c", listener.Command)
-				}
-				cmd.Stdout = stdout
-				buf := new(bytes.Buffer)
-				cmd.Stderr = buf
-				absRoot, err := filepath.Abs(instance.Root)
-				if err != nil {
-					return err
-				}
-				cmd.Dir = absRoot
-				cmd.Env = append(os.Environ(),
-					"MESSAGE="+eventInfo.Message,
-					"FILES="+eventInfo.Files,
-					"TYPE="+fmt.Sprint(eventInfo.Type),
-				)
-				if err := cmd.Run(); err != nil {
-					log.Printf("warning: sync listener command '%s' exited unsuccessfully (%s). stderr:\n%s", name, err, buf.String())
-				}
-				if stdout != nil {
-					stdout.Write([]byte(fmt.Sprintf("\033[2m<<< END   '%s'\033[22m\n\n", name)))
-				}
+				hooks[name] = hook
+			}
+		}
+	}
+
+	// PRE
+
+	for name, hook := range hooks {
+		if hook.PreCommand != "" {
+			if stdouterr != nil {
+				stdouterr.Write([]byte(fmt.Sprintf("\033[2m=== RUN  hook '%s' PRE-command\033[22m\n", name)))
+			}
+
+			err := runHookCommand(eventInfo, hook.PreCommand, instance.Root, stdouterr)
+
+			if err != nil {
+				log.Printf("warning: sync hook command '%s' exited unsuccessfully (%s).\n", name, err)
+			}
+
+			if stdouterr != nil {
+				stdouterr.Write([]byte(fmt.Sprintf("\033[2m=== DONE hook '%s' PRE-command\033[22m\n", name)))
+			}
+		}
+	}
+
+	if stdouterr != nil {
+		stdouterr.Write([]byte("\n\033[2m=== MODIFYING EVENTS\n\n"))
+	}
+
+	if err := action(); err != nil {
+		return err
+	}
+
+	// POST
+
+	for name, hook := range hooks {
+		if hook.PostCommand != "" {
+			if stdouterr != nil {
+				stdouterr.Write([]byte(fmt.Sprintf("\033[2m=== RUN  hook '%s' POST-command\033[22m\n", name)))
+			}
+
+			err := runHookCommand(eventInfo, hook.PostCommand, instance.Root, stdouterr)
+
+			if err != nil {
+				log.Printf("warning: sync hook command '%s' exited unsuccessfully (%s).\n", name, err)
+			}
+
+			if stdouterr != nil {
+				stdouterr.Write([]byte(fmt.Sprintf("\033[2m=== DONE hook '%s' POST-command\033[22m\n", name)))
 			}
 		}
 	}
@@ -113,4 +136,32 @@ func (instance *Instance) Sync(eventInfo SyncEvent, ignoreCooldowns bool, stdout
 	}
 
 	return nil
+}
+
+func runHookCommand(eventInfo SyncEvent, command string, workingDir string, stdouterr io.Writer) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command(command)
+	default:
+		cmd = exec.Command("sh", "-c", command)
+	}
+
+	cmd.Stdout = stdouterr
+	cmd.Stderr = stdouterr
+
+	absRoot, err := filepath.Abs(workingDir)
+	if err != nil {
+		return err
+	}
+
+	cmd.Dir = absRoot
+	cmd.Env = append(os.Environ(),
+		"MESSAGE="+eventInfo.Message,
+		"FILES="+strings.Join(eventInfo.Files, " "),
+		"TYPE="+fmt.Sprint(eventInfo.Type),
+	)
+
+	return cmd.Run()
 }

@@ -16,35 +16,34 @@ const CalendarConfigFilename string = ".config.toml"
 type Config struct {
 	Calendars map[string]ContainerConfig
 	Sources   map[string]CalendarSource
-	Sync      SyncConfig
+	Hooks     map[string]Hook
 }
 
 type ContainerConfig struct {
 	Color color.RGBA
 }
 
-type SyncConfig struct {
-	// Listeners contains a list of shell commands that are executed when certain calendar event changes occur.
-	// Useful for synchronizing VCS, backups, or pinging an ian server.
-	Listeners map[string]struct {
-		// Command is run as a shell command when an event is updated, in the instance directory.
-		//
-		// Use $MESSAGE in the command to embed the message describing the event change.
-		//
-		// Use $FILES for a space-separated string with the affected file(s).
-		//
-		// Use $TYPE for the event type ID.
-		//
-		// Any stderr output from the command is printed to the user in the form of a warning.
-		//
-		// Example: 'git add . && git commit -m "$MESSAGE" && (git pull; git push)'
-		Command string
-		// Type is a bitmask that represents the event(s) to listen to.
-		Type SyncEventType
-		// Cooldown is parsed as a time.Duration, and is the duration that has to pass before the command is executed again, to prevent fast-paced command execution.
-		Cooldown  string
-		Cooldown_ time.Duration
-	}
+type Hook struct {
+	// PreCommand is run as a shell command BEFORE an event is updated, in the instance directory.
+	// PreCommand has the same environment variables as PostCommand.
+	PreCommand string
+	// PostCommand is run as a shell command AFTER an event is updated, in the instance directory.
+	//
+	// Use $MESSAGE in the command to embed the message describing the event change.
+	//
+	// Use $FILES for a space-separated string with the affected file(s).
+	//
+	// Use $TYPE for the event type ID.
+	//
+	// Any stderr output from the command is printed to the user in the form of a warning.
+	//
+	// Example: 'git add . && git commit -m "$MESSAGE" && (git pull; git push)'
+	PostCommand string
+	// Type is a bitmask that represents the event(s) to listen to.
+	Type SyncEventType
+	// Cooldown is parsed as a time.Duration, and is the duration that has to pass before the command is executed again, to prevent fast-paced command execution.
+	Cooldown  string
+	Cooldown_ time.Duration
 }
 
 func getConfigPath(root string) string {
@@ -79,7 +78,7 @@ func ReadConfig(root string) (Config, error) {
 		}
 	}
 
-	for name, listener := range config.Sync.Listeners {
+	for name, listener := range config.Hooks {
 		if listener.Cooldown != "" {
 			d, err := time.ParseDuration(listener.Cooldown)
 			if err != nil {
@@ -90,7 +89,7 @@ func ReadConfig(root string) (Config, error) {
 			}
 
 			listener.Cooldown_ = d
-			config.Sync.Listeners[name] = listener
+			config.Hooks[name] = listener
 		}
 	}
 

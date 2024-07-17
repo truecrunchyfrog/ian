@@ -16,14 +16,14 @@ const copyFlag string = "copy"
 const updateUidFlag string = "update-uid"
 
 func init() {
-  editCmd.Flags().String(copyFlag, "", "Copy the event to the `destination` path, along with the changes.")
-  editCmd.Flags().Bool(updateUidFlag, false, "Update the UID of an event.")
+	editCmd.Flags().String(copyFlag, "", "Copy the event to the `destination` path, along with the changes.")
+	editCmd.Flags().Bool(updateUidFlag, false, "Update the UID of an event.")
 
 	eventPropsCmd.AddCommand(editCmd)
 }
 
 var editCmd = &cobra.Command{
-	Use:     "edit <event>",
+	Use:     "edit event",
 	Aliases: []string{"ed", "ch"},
 	Short:   "Edit an event's properties",
 	Args:    cobra.ExactArgs(1),
@@ -41,16 +41,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	matches := ian.QueryEvents(&events, args[0])
-
-	if len(matches) == 0 {
-		log.Fatal("no such event")
-	}
-	if len(matches) > 1 {
-		log.Fatal("ambiguous event")
-	}
-
-	event := matches[0]
+	event, err := ian.GetEvent(&events, args[0])
 
 	if event.Constant {
 		log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
@@ -59,8 +50,8 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	onWritten := []func(){}
 
 	flags := []string{
-    copyFlag,
-    updateUidFlag,
+		copyFlag,
+		updateUidFlag,
 		eventFlag_Summary,
 		eventFlag_Start,
 		eventFlag_End,
@@ -75,15 +66,15 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		eventFlag_ExDate,
 	}
 
-  if cmd.Flags().Changed(copyFlag) { // Copy operation
-    event.Path, _ = cmd.Flags().GetString(copyFlag)
-    if e, _ := ian.GetEvent(&events, event.Path); e != nil {
-      log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
-    }
-  }
-  if cmd.Flags().Changed(updateUidFlag) { // UID
-    event.Props.Uid = ian.GenerateUid()
-  }
+	if cmd.Flags().Changed(copyFlag) { // Copy operation
+		event.Path, _ = cmd.Flags().GetString(copyFlag)
+		if e, _ := ian.GetEvent(&events, event.Path); e != nil {
+			log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
+		}
+	}
+	if cmd.Flags().Changed(updateUidFlag) { // UID
+		event.Props.Uid = ian.GenerateUid()
+	}
 	if eventFlags.Changed(eventFlag_Summary) { // Summary
 		event.Props.Summary, _ = eventFlags.GetString(eventFlag_Summary)
 	}
@@ -126,9 +117,9 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		oldFile := event.GetFilepath(instance)
 		newCalendar, _ := eventFlags.GetString(eventFlag_Calendar)
 		event.Path = path.Join(newCalendar, path.Base(event.Path))
-    if e, _ := ian.GetEvent(&events, event.Path); e != nil {
-      log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
-    }
+		if e, _ := ian.GetEvent(&events, event.Path); e != nil {
+			log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
+		}
 		if ian.IsPathInCache(event.Path) {
 			log.Fatal("cannot set calendar to inside cache")
 		}
@@ -158,31 +149,34 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	if len(modified) == 0 {
-		log.Fatal("no changes described. check the help page for a list of values to change.")
-	}
-	event.Props.Modified = time.Now().In(ian.GetTimeZone())
-	if err := event.Props.Validate(); err != nil {
-		log.Fatalf("verification failed: %s", err)
+		log.Fatal("no modifications made. check the help page for a list of values to change.")
 	}
 
-	events2, _, err := instance.ReadEvents(event.Props.GetTimeRange())
+	event.Props.Modified = time.Now().In(ian.GetTimeZone())
+
+	if err := event.Props.Validate(); err != nil {
+		log.Fatalf("validation failed: %s", err)
+	}
+
+	checkCollision(&events, event.Props)
+
+	err = instance.Sync(func() error {
+		if err := event.Write(instance); err != nil {
+			log.Fatal(err)
+		}
+		for _, f := range onWritten {
+			f()
+		}
+		fmt.Printf("'%s' has been updated; %s\n", event.Path, strings.Join(modified, ", "))
+
+		return nil
+	}, ian.SyncEvent{
+		Type:    ian.SyncEventUpdate,
+		Files:   []string{event.GetFilepath(instance)},
+		Message: fmt.Sprintf("ian: edit event '%s'; %s", event.Path, strings.Join(modified, ", ")),
+	}, false, nil)
+
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	checkCollision(&events2, event.Props)
-
-	if err := event.Write(instance); err != nil {
-		log.Fatal(err)
-	}
-	for _, f := range onWritten {
-		f()
-	}
-	fmt.Printf("'%s' has been updated; %s\n", event.Path, strings.Join(modified, ", "))
-
-	instance.Sync(ian.SyncEvent{
-		Type:    ian.SyncEventUpdate,
-		Files:   event.GetFilepath(instance),
-		Message: fmt.Sprintf("ian: edit event '%s'; %s", event.Path, strings.Join(modified, ", ")),
-	}, false, nil)
 }
