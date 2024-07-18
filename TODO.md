@@ -1,3 +1,5 @@
+* make calendars only one level deep (simplify)
+* separate "Path" in Event into both "Calendar" and "Name" (solves the whole filepath/path problem)
 * create search command to list events; then have certain commands (delete, edit, info) act on a list of event paths, that the user can pipe, like: `ian search hello | ian delete`
 * start using something like zerolog?
 * create a confirmation flag for the delete command, to confirm each deletion before deleting
