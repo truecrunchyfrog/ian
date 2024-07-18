@@ -1,3 +1,5 @@
+* make calendars only one level deep (simplify)
+* separate "Path" in Event into both "Calendar" and "Name" (solves the whole filepath/path problem)
 * start using something like zerolog?
 * create a confirmation flag for the delete command, to confirm each deletion before deleting
 * select calendars/events to view
