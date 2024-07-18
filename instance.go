@@ -105,7 +105,7 @@ func (instance *Instance) ReadEvent(relPath string) (Event, error) {
 	}, nil
 }
 
-// ReadEvents reads all events in the instance during the time range, and parses their recurrences.
+// ReadEvents reads all events in the instance that appear during the time range, and parses their recurrences.
 // If the time range is empty (From.IsZero() && To.IsZero()), then all events are shown,
 // and recurrences are shown within the range of the normal events.
 func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, error) {

@@ -34,11 +34,11 @@ func syncCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	if listListeners {
-		fmt.Println("configured sync listeners:")
+		fmt.Println("configured sync hooks:")
 		for name, listener := range instance.Config.Hooks {
 			fmt.Printf("'%s' has command '%s' with a cooldown of %s\n", name, listener.PostCommand, ian.DurationToString(listener.Cooldown_))
 		}
-		fmt.Println("\nsync is not made when listing listeners.")
+		fmt.Println("\nsync is not made when listing hooks.")
 		return
 	}
 

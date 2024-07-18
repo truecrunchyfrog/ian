@@ -167,7 +167,7 @@ func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string,
 			}, ian.SyncEvent{
 				Type:    ian.SyncEventDelete,
 				Files:   []string{file},
-				Message: fmt.Sprintf("ian: [CalDAV request] delete event: '%s'", event.Path),
+        Message: fmt.Sprintf("ian: [CalDAV request] delete event: '%s'", event.Path),
 			}, false, nil)
 
 			if err != nil {
@@ -192,17 +192,17 @@ func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string,
 				return "", err
 			}
 
-			err := backend.instance.Sync(func() error {
-				return event.Write(backend.instance)
-			}, ian.SyncEvent{
-				Type:    ian.SyncEventUpdate,
-				Files:   []string{event.GetFilepath(backend.instance)},
-				Message: fmt.Sprintf("ian: [CalDAV request] edit event '%s'", event.Path),
-			}, false, nil)
+      err := backend.instance.Sync(func() error {
+        return event.Write(backend.instance)
+      }, ian.SyncEvent{
+      	Type:    ian.SyncEventUpdate,
+      	Files:   []string{event.GetFilepath(backend.instance)},
+        Message: fmt.Sprintf("ian: [CalDAV request] edit event '%s'", event.Path),
+      }, false, nil)
 
-			if err != nil {
-				return "", err
-			}
+      if err != nil {
+        return "", err
+      }
 			hasPut = true
 		}
 	}

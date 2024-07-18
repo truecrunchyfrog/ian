@@ -9,6 +9,44 @@ import (
 	"time"
 )
 
+func displayCalendar(
+	fromYear int, fromMonth time.Month,
+	months int,
+	sunday,
+	showWeeks bool,
+	widthPerDay int,
+	location *time.Location,
+) (output string) {
+	weekdayOffset := 1
+	if sunday {
+		weekdayOffset = 0
+	}
+
+	// Display the weekdays
+	for wd := 0; wd < 7; wd++ {
+		weekday := time.Weekday((weekdayOffset + wd) % 7)
+
+		dayString := weekday.String()
+		if len(dayString) > widthPerDay {
+			dayString = dayString[:widthPerDay]
+		}
+		output += fmt.Sprintf(" %"+fmt.Sprint(widthPerDay)+"s", dayString)
+	}
+
+	// Display the month days, per month
+	for m := fromMonth; m < fromMonth+time.Month(months); m++ {
+		year := fromYear + int(m-1)/12
+		monthDays := 32 - time.Date(year, m, 32, 0, 0, 0, 0, location).Day()
+		firstWeekdayInMonth := time.Date(year, m, 1, 0, 0, 0, 0, location).Weekday()
+
+		if m == fromMonth {
+			emptyDays
+		}
+	}
+
+	return ""
+}
+
 func DisplayCalendar(
 	location *time.Location,
 	year int,
@@ -32,7 +70,7 @@ func DisplayCalendar(
 		output += "    "
 	}
 
-	width := (widthPerDay + 1) * 7 // 4 chars per day, 7 days in a week
+	width := (widthPerDay + 1) * 7
 	output += fmt.Sprintf("%[1]*s\n", -width, fmt.Sprintf("%[1]*s", (width+len(header))/2, header))
 
 	daysInMonth := 32 - time.Date(year, month, 32, 0, 0, 0, 0, location).Day()

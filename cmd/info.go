@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/truecrunchyfrog/ian"
@@ -30,6 +32,16 @@ func infoCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	infoEvents := []*ian.Event{}
+
+	if len(args) == 0 {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			args = append(args, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	for _, arg := range args {
 		event, err := ian.GetEvent(&events, arg)

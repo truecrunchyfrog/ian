@@ -1,8 +1,8 @@
-* create search command to list events; then have certain commands (delete, edit, info) act on a list of event paths, that the user can pipe, like: `ian search hello | ian delete`
 * start using something like zerolog?
 * create a confirmation flag for the delete command, to confirm each deletion before deleting
 * select calendars/events to view
 * colorless mode
+* maybe recurring events' paths should be the same as the parent?
 * make the 'add' command friendlier; allow aliases (now, today, tomorrow, wednesday)
 * make rrule, rdate and exdate friendlier
 * let user specify prefered datetime layouts

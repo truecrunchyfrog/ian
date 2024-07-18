@@ -38,7 +38,7 @@ type SyncCooldownInfo struct {
 
 // Sync is called whenever changes are made to event(s), with the changes occuring in action, and calls any configured commands.
 func (instance *Instance) Sync(action func() error, eventInfo SyncEvent, ignoreCooldowns bool, stdouterr io.Writer) error {
-	var hooks map[string]Hook
+	hooks := map[string]Hook{}
 
 	var cooldownJournal *SyncCooldownInfo
 	var isJournalChanged bool
@@ -100,7 +100,7 @@ func (instance *Instance) Sync(action func() error, eventInfo SyncEvent, ignoreC
 	}
 
 	if stdouterr != nil {
-		stdouterr.Write([]byte("\n\033[2m=== MODIFYING EVENTS\n\n"))
+		stdouterr.Write([]byte("\n\033[2m=== MODIFYING EVENTS\033[0m\n\n"))
 	}
 
 	if err := action(); err != nil {

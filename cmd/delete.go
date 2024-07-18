@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -21,10 +22,6 @@ var deleteCmd = &cobra.Command{
 }
 
 func deleteCmdRun(cmd *cobra.Command, args []string) {
-	if len(args) == 0 {
-		log.Fatal("no event argument was provided")
-	}
-
 	instance, err := ian.CreateInstance(GetRoot())
 	if err != nil {
 		log.Fatal(err)
@@ -36,6 +33,16 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	deleteEvents := []*ian.Event{}
+
+	if len(args) == 0 {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			args = append(args, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	for _, arg := range args {
 		event, err := ian.GetEvent(&events, arg)
@@ -49,6 +56,10 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 			log.Printf("warning: '%s' is a recurring event and all recurrences will be deleted too.\n", event.Path)
 		}
 		deleteEvents = append(deleteEvents, event)
+	}
+
+	if len(deleteEvents) == 0 {
+		log.Fatal("no event to delete")
 	}
 
 	syncMsg := "ian: delete "
