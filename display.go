@@ -8,147 +8,81 @@ import (
 	"time"
 )
 
-/*func displayCalendar(
+func DisplayCalendar(
+	location *time.Location,
 	fromYear int, fromMonth time.Month,
 	months int,
-	sunday,
+	firstWeekday time.Weekday,
 	showWeeks bool,
 	widthPerDay int,
-	location *time.Location,
+	dayFmt func(y int, m time.Month, d int) (format string, fmtEntireSlot bool),
 ) (output string) {
-	weekdayOffset := 1
-	if sunday {
-		weekdayOffset = 0
-	}
-
 	// Display the weekdays
+	output += "  "
 	for wd := 0; wd < 7; wd++ {
-		weekday := time.Weekday((weekdayOffset + wd) % 7)
+		weekday := time.Weekday((int(firstWeekday) + wd) % 7)
 
 		dayString := weekday.String()
 		if len(dayString) > widthPerDay {
 			dayString = dayString[:widthPerDay]
 		}
 		output += fmt.Sprintf(" %"+fmt.Sprint(widthPerDay)+"s", dayString)
+	}
+
+	showWeekNumber := func(y int, m time.Month, d int) string {
+		if showWeeks {
+			_, week := time.Date(y, m, d, 0, 0, 0, 0, location).ISOWeek()
+			return fmt.Sprint(week)
+		}
+		return "  "
 	}
 
 	// Display the month days, per month
-	for m := fromMonth; m < fromMonth+time.Month(months); m++ {
-		year := fromYear + int(m-1)/12
-		monthDays := 32 - time.Date(year, m, 32, 0, 0, 0, 0, location).Day()
-		firstWeekdayInMonth := time.Date(year, m, 1, 0, 0, 0, 0, location).Weekday()
+	for unclampedMonth := fromMonth; unclampedMonth < fromMonth+time.Month(months); unclampedMonth++ {
+		output += "\n"
 
-		if m == fromMonth {
-			emptyDays
+		y := fromYear + int(unclampedMonth-1)/12
+		m := unclampedMonth%12 + 1
+		monthDays := 32 - time.Date(y, m, 32, 0, 0, 0, 0, location).Day()
+		firstWeekdayInMonth := time.Date(y, m, 1, 0, 0, 0, 0, location).Weekday()
+
+		var emptyDaysPadding string
+		// Fill empty days until the first weekday
+		for weekday := firstWeekday; weekday != firstWeekdayInMonth; weekday = (weekday + 1) % 7 {
+			emptyDaysPadding += strings.Repeat(" ", widthPerDay+1)
+		}
+
+		output += emptyDaysPadding
+		output += "   \033[1m" + m.String()[:3] + "\033[0m\n"
+
+		if firstWeekdayInMonth != firstWeekday {
+			output += showWeekNumber(y, m, 1)
+			output += emptyDaysPadding
+		}
+
+		// Display the month's days.
+		for d := 1; d <= monthDays; d++ {
+			weekday := time.Weekday((int(firstWeekdayInMonth) + d - 1) % 7)
+
+			if weekday == firstWeekday { // Week number/padding on week start
+				output += showWeekNumber(y, m, d)
+			}
+
+			format, entireSlot := dayFmt(y, m, d)
+			padding := strings.Repeat(" ", widthPerDay-2)
+			if widthPerDay > 2 && entireSlot {
+				format += padding
+			} else {
+				format = padding + format
+			}
+			output += fmt.Sprintf(" "+format+"%s\033[0m", fmt.Sprintf("%2d", d))
+
+			if weekday == (firstWeekday+6)%7 { // Break line at end of week
+				output += "\n"
+			}
 		}
 	}
 
-	return ""
-}*/
-
-func DisplayCalendar(
-	location *time.Location,
-	year int,
-	month time.Month,
-	today time.Time,
-	sunday,
-	showWeeks,
-	weekHinting bool,
-	borders bool,
-	widthPerDay int,
-	format func(monthDay int, isToday bool) (string, bool),
-) (output string) {
-	var weekdayOffset time.Weekday = 1
-	if sunday {
-		weekdayOffset = 0
-	}
-
-	header := fmt.Sprintf("%s %d", month.String(), year)
-
-	if showWeeks {
-		output += "    "
-	}
-
-	width := (widthPerDay + 1) * 7
-	output += fmt.Sprintf("%[1]*s\n", -width, fmt.Sprintf("%[1]*s", (width+len(header))/2, header))
-
-	daysInMonth := 32 - time.Date(year, month, 32, 0, 0, 0, 0, location).Day()
-	firstWeekdayInMonth := time.Date(year, month, 1, 0, 0, 0, 0, location).Weekday()
-
-	if showWeeks {
-		output += "  "
-		if borders {
-			output += " "
-		}
-	}
-
-	weekdayFormat := "\033[2m"
-	if borders {
-		weekdayFormat += "\033[4m"
-	}
-	output += weekdayFormat
-	for i := 0; i < 7; i++ {
-		weekday := time.Weekday((int(weekdayOffset) + i) % 7)
-		dayString := weekday.String()
-		if len(dayString) > widthPerDay {
-			dayString = dayString[:widthPerDay]
-		}
-		if weekHinting && weekday == today.Weekday() {
-			dayString = "\033[22m" + dayString + weekdayFormat
-		}
-		output += fmt.Sprintf(" %"+fmt.Sprint(widthPerDay)+"s", dayString)
-	}
-	output += "\033[0m\n"
-
-	displayWeek := func(week int) string {
-		var format string
-		if _, currentWeek := today.ISOWeek(); weekHinting && currentWeek == week {
-			format = "\033[22;37m"
-		}
-		var border string
-		if borders {
-			border = "│"
-		}
-		return fmt.Sprintf("\033[2m"+format+"%2d"+border+"\033[0m", week)
-	}
-
-	emptyDays := int(firstWeekdayInMonth - weekdayOffset)
-	if !sunday && firstWeekdayInMonth == 0 {
-		emptyDays = 6
-	}
-	if emptyDays > 0 {
-		if showWeeks {
-			_, week := time.Date(year, month, 1, 0, 0, 0, 0, location).ISOWeek()
-			output += displayWeek(week)
-		}
-		output += strings.Repeat(" ", (widthPerDay+1)*emptyDays)
-	}
-
-	for monthDay := 1; monthDay <= daysInMonth; monthDay++ {
-		weekday := time.Weekday((int(firstWeekdayInMonth) + monthDay - 1) % 7)
-
-		if showWeeks && weekday == weekdayOffset {
-			_, week := time.Date(year, month, monthDay, 0, 0, 0, 0, location).ISOWeek()
-			output += displayWeek(week)
-		}
-
-		isToday := year == today.Year() && month == today.Month() && monthDay == today.Day()
-
-		format, entireSlot := format(monthDay, isToday)
-		padding := strings.Repeat(" ", widthPerDay-2)
-		if widthPerDay > 2 && entireSlot {
-			format += padding
-		} else {
-			format = padding + format
-		}
-		output += fmt.Sprintf(" "+format+"%s\033[0m", fmt.Sprintf("%2d", monthDay))
-
-		if weekday == (weekdayOffset+6)%7 && monthDay != daysInMonth {
-			output += "\n"
-		}
-	}
-
-	output += "\n"
 	return
 }
 

@@ -68,7 +68,7 @@ func (instance *Instance) getAvailableFilename(dir, originalName string) (string
 		}
 
 		if _, err := os.Stat(filepath.Join(dir, originalName+pathSuffix)); err != nil && os.IsNotExist(err) {
-      // File does not exist: safe to write file
+			// File does not exist: safe to write file
 			return originalName + pathSuffix, nil
 		} else {
 			// File already exists
@@ -89,7 +89,11 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 		return nil, nil, err
 	}
 	for _, calDir := range calDirs {
-		if !calDir.IsDir() || strings.HasPrefix(calDir.Name(), ".") {
+		if strings.HasPrefix(calDir.Name(), ".") {
+			continue
+		}
+		if !calDir.IsDir() {
+			log.Printf("warning: ignoring file '%s'. the root directory should only contain calendars (directories). any other files/directories should be prefixed with a dot ('.').\n", filepath.Join(instance.Root, calDir.Name()))
 			continue
 		}
 		propsList, err := instance.readDir(filepath.Join(instance.Root, calDir.Name()))
@@ -202,7 +206,7 @@ func (instance *Instance) readDir(dir string) (map[string]EventProperties, error
 			continue
 		}
 		if entry.IsDir() {
-			log.Printf("warning: ignoring subdirectory '%s'. consider renaming it to start with a dot ('.'), to ignore it properly.\n", path)
+			log.Printf("warning: ignoring calendar subdirectory '%s'. consider renaming it to start with a dot ('.'), to ignore it properly.\n", path)
 			continue
 		}
 

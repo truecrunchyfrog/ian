@@ -254,12 +254,12 @@ func (instance *Instance) ReadCachedEvents() ([]Event, error) {
 }
 
 func (instance *Instance) CacheEvent(subDir string, props EventProperties) error {
-  path := filepath.Join(instance.getCacheDir(), subDir)
-  name, err := instance.getAvailableFilename(path, props.FormatName())
-  if err != nil {
-    return err
-  }
-  return props.Write(filepath.Join(path, name))
+	path := filepath.Join(instance.getCacheDir(), subDir)
+	name, err := instance.getAvailableFilename(path, props.FormatName())
+	if err != nil {
+		return err
+	}
+	return props.Write(filepath.Join(path, name))
 }
 
 // CacheEvents collectively caches a list of events under a certain directory.

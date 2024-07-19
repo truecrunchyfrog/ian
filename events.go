@@ -44,11 +44,11 @@ type eventPath struct {
 func NewEventPath(calendar, name string) (EventPath, error) {
 	illegalChars := "\n/" + string(filepath.Separator)
 
-	if calendar == "" || strings.ContainsAny(calendar, illegalChars + " ") {
+	if calendar == "" || strings.ContainsAny(calendar, illegalChars+" ") {
 		return nil, fmt.Errorf("calendar '%s' contains illegal characters", calendar)
 	}
 
-  name = strings.TrimSpace(name)
+	name = strings.TrimSpace(name)
 	if name == "" || strings.ContainsAny(name, illegalChars) {
 		return nil, fmt.Errorf("name '%s' contains illegal characters", name)
 	}
@@ -61,11 +61,11 @@ func NewEventPath(calendar, name string) (EventPath, error) {
 
 // NewFreeEventPath is like NewEventPath, but ensures that the filename is available, possibly by changing it.
 func NewFreeEventPath(instance *Instance, calendar, name string) (EventPath, error) {
-  safeName, err := instance.getAvailableFilename(filepath.Join(instance.Root, calendar), name)
-  if err != nil {
-    return nil, err
-  }
-  return NewEventPath(calendar, safeName)
+	safeName, err := instance.getAvailableFilename(filepath.Join(instance.Root, calendar), name)
+	if err != nil {
+		return nil, err
+	}
+	return NewEventPath(calendar, safeName)
 }
 
 func ParseEventPath(input string) (EventPath, error) {
@@ -102,7 +102,7 @@ type Event struct {
 
 // Write writes the event to the appropriate location in 'instance'.
 func (event *Event) Write(instance *Instance) error {
-  return event.Props.Write(event.Path.Filepath(instance))
+	return event.Props.Write(event.Path.Filepath(instance))
 }
 
 func (event *Event) String() string {

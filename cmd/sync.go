@@ -10,11 +10,11 @@ import (
 )
 
 var ignoreCooldowns bool
-var listListeners bool
+var listHooks bool
 
 func init() {
-	syncCmd.Flags().BoolVarP(&ignoreCooldowns, "ignore-cooldowns", "i", false, "Ignore any listener cooldowns.")
-	syncCmd.Flags().BoolVarP(&listListeners, "list", "l", false, "List configured sync listeners instead of syncing.")
+	syncCmd.Flags().BoolVarP(&ignoreCooldowns, "ignore-cooldowns", "i", false, "Ignore any hook cooldowns.")
+	syncCmd.Flags().BoolVarP(&listHooks, "list", "l", false, "List configured sync hooks instead of syncing.")
 
 	rootCmd.AddCommand(syncCmd)
 }
@@ -22,7 +22,7 @@ func init() {
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Dispatch a synchronization event.",
-	Long:  "Ping the synchronization listeners. Useful for unnoticed event changes, like manual changes or during a cooldown with '--ignore-cooldowns'. Also prints stdout.",
+	Long:  "Ping the synchronization listeners. Useful for unnoticed event changes, like manual changes or during a cooldown with '--ignore-cooldowns'. Also prints stdout/stderr.",
 	Args:  cobra.NoArgs,
 	Run:   syncCmdRun,
 }
@@ -33,7 +33,7 @@ func syncCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	if listListeners {
+	if listHooks {
 		fmt.Println("configured sync hooks:")
 		for name, listener := range instance.Config.Hooks {
 			fmt.Printf("'%s' has command '%s' with a cooldown of %s\n", name, listener.PostCommand, ian.DurationToString(listener.Cooldown_))
