@@ -11,15 +11,15 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const CalendarConfigFilename string = ".config.toml"
+const ConfigFilename string = ".config.toml"
 
 type Config struct {
-	Calendars map[string]ContainerConfig
+	Calendars map[string]CalendarConfig
 	Sources   map[string]CalendarSource
 	Hooks     map[string]Hook
 }
 
-type ContainerConfig struct {
+type CalendarConfig struct {
 	Color color.RGBA
 }
 
@@ -47,7 +47,7 @@ type Hook struct {
 }
 
 func getConfigPath(root string) string {
-	return filepath.Join(root, CalendarConfigFilename)
+	return filepath.Join(root, ConfigFilename)
 }
 
 func ReadConfig(root string) (Config, error) {
@@ -109,7 +109,7 @@ func WriteConfig(root string, config Config) error {
 	return nil
 }
 
-func (conf *Config) GetContainerConfig(container string) (*ContainerConfig, error) {
+func (conf *Config) GetContainerConfig(container string) (*CalendarConfig, error) {
 	for name, cal := range conf.Calendars {
 		if name == container {
 			return &cal, nil
@@ -118,7 +118,7 @@ func (conf *Config) GetContainerConfig(container string) (*ContainerConfig, erro
 	return nil, errors.New("calendar config for '" + container + "' does not exist")
 }
 
-func (conf *ContainerConfig) GetColor() color.RGBA {
+func (conf *CalendarConfig) GetColor() color.RGBA {
 	if r, g, b, _ := conf.Color.RGBA(); r+g+b == 0 {
 		return color.RGBA{255, 255, 255, 255}
 	}

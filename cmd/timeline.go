@@ -63,7 +63,7 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
 
 	if cals, _ := cmd.Flags().GetStringSlice("calendars"); len(cals) != 0 {
 		events = ian.FilterEvents(&events, func(e *ian.Event) bool {
-			return slices.Contains(cals, e.GetCalendarName())
+			return slices.Contains(cals, e.Path.Calendar())
 		})
 	}
 

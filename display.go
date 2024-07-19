@@ -3,13 +3,12 @@ package ian
 import (
 	"fmt"
 	"image/color"
-	"path"
 	"slices"
 	"strings"
 	"time"
 )
 
-func displayCalendar(
+/*func displayCalendar(
 	fromYear int, fromMonth time.Month,
 	months int,
 	sunday,
@@ -45,7 +44,7 @@ func displayCalendar(
 	}
 
 	return ""
-}
+}*/
 
 func DisplayCalendar(
 	location *time.Location,
@@ -163,12 +162,12 @@ func RgbToAnsiSeq(rgb color.RGBA, background bool) string {
 
 // GetEventRgbAnsiSeq is a helper function to quickly get the color of an event based on its container.
 func GetEventRgbAnsiSeq(event *Event, instance *Instance, background bool) string {
-	container := path.Dir(event.Path)
+	calendar := event.Path.Calendar()
 	var rgb color.RGBA
-	if conf, err := instance.Config.GetContainerConfig(container); err == nil {
+	if conf, err := instance.Config.GetContainerConfig(calendar); err == nil {
 		rgb = conf.GetColor()
 	} else {
-		rgb = (&ContainerConfig{}).GetColor()
+		rgb = (&CalendarConfig{}).GetColor()
 	}
 	return RgbToAnsiSeq(rgb, background)
 }
@@ -356,7 +355,7 @@ func DisplayCalendarLegend(instance *Instance, events []Event) string {
 	mentionedCals := []string{}
 
 	for _, event := range events {
-		cal := event.GetCalendarName()
+		cal := event.Path.Calendar()
 		if !slices.Contains(mentionedCals, cal) {
 			output += fmt.Sprintf(GetEventRgbAnsiSeq(&event, instance, false)+"▆ %s\033[0m\n", cal)
 			mentionedCals = append(mentionedCals, cal)

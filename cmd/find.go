@@ -23,6 +23,7 @@ func init() {
 	findCmd.Flags().String("before", "", "Events must end before this datetime.")
 	findCmd.Flags().String("after", "", "Events must start after this datetime.")
 	findCmd.Flags().Bool("exclusive", false, "When combined with 'before' and/or 'after', the entire event time ranges must occur outside of these limits (e.g., if 'before' is set to 01-04-1991, then an event cannot start before and end after 1 April; the entire time range must be confined before that datetime).")
+  findCmd.Flags().BoolP("one", "1", false, "Exit if the query does not match exactly one event.")
 
 	findCmd.MarkFlagsMutuallyExclusive("at", "before")
 	findCmd.MarkFlagsMutuallyExclusive("at", "after")
@@ -31,9 +32,11 @@ func init() {
 }
 
 var findCmd = &cobra.Command{
-	Use:   "find query",
-	Short: "Query matches",
-	Run:   findCmdRun,
+	Use:     "find [-p path] [-s summary] [--before date] [--after date]",
+	Aliases: []string{"f", "q", "l", "list"},
+	Short:   "Query matches",
+	Args:    cobra.NoArgs,
+	Run:     findCmdRun,
 }
 
 func findCmdRun(cmd *cobra.Command, args []string) {
@@ -47,7 +50,7 @@ func findCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  calendars, _ := cmd.Flags().GetStringSlice("calendars")
+	calendars, _ := cmd.Flags().GetStringSlice("calendars")
 	ignoreConstant, _ := cmd.Flags().GetBool("ignore-constant")
 	caseSensitive, _ := cmd.Flags().GetBool("case-sensitive")
 	path, _ := cmd.Flags().GetString("path")
@@ -88,9 +91,9 @@ func findCmdRun(cmd *cobra.Command, args []string) {
 			return false
 		}
 
-    if len(calendars) != 0 && !slices.Contains(calendars, e.GetCalendarName()) {
-      return false
-    }
+		if len(calendars) != 0 && !slices.Contains(calendars, e.Path.Calendar()) {
+			return false
+		}
 
 		if len(occurAt) != 0 {
 			insideOne := false
@@ -114,10 +117,10 @@ func findCmdRun(cmd *cobra.Command, args []string) {
 
 		if path != "" {
 			if caseSensitive {
-				if !strings.Contains(e.Path, path) {
+				if !strings.Contains(e.Path.String(), path) {
 					return false
 				}
-			} else if !strings.Contains(strings.ToLower(e.Path), strings.ToLower(path)) {
+			} else if !strings.Contains(strings.ToLower(e.Path.String()), strings.ToLower(path)) {
 				return false
 			}
 		}
@@ -144,6 +147,10 @@ func findCmdRun(cmd *cobra.Command, args []string) {
 
 		return true
 	})
+
+  if one, _ := cmd.Flags().GetBool("one"); one && len(events) != 1 {
+    log.Fatalf("expected one result, got %d\n", len(events))
+  }
 
 	for _, event := range events {
 		fmt.Println(event.Path)

@@ -61,22 +61,22 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 	case cherrypickCalendars != nil:
 		filterFunc = func(e *ian.Event) bool {
 			// Only from these calendars.
-			return slices.Contains(cherrypickCalendars, e.GetCalendarName())
+			return slices.Contains(cherrypickCalendars, e.Path.Calendar())
 		}
 	case cherrypickEvents != nil:
 		filterFunc = func(e *ian.Event) bool {
 			// Only these events.
-			return slices.Contains(cherrypickEvents, e.Path)
+			return slices.Contains(cherrypickEvents, e.Path.String())
 		}
 	case excludeCalendars != nil:
 		filterFunc = func(e *ian.Event) bool {
 			// NOT these calendars.
-			return !slices.Contains(excludeCalendars, e.GetCalendarName())
+			return !slices.Contains(excludeCalendars, e.Path.Calendar())
 		}
 	case excludeEvents != nil:
 		filterFunc = func(e *ian.Event) bool {
 			// NOT these events.
-			return !slices.Contains(cherrypickEvents, e.Path)
+			return !slices.Contains(cherrypickEvents, e.Path.String())
 		}
 	default:
 		filterFunc = func(e *ian.Event) bool {
@@ -115,7 +115,7 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 		eventsByCal := map[string][]ian.Event{}
 
 		for _, event := range events {
-      cal := event.GetCalendarName()
+      cal := event.Path.Calendar()
 			calEvents := eventsByCal[cal]
 			if calEvents == nil {
 				calEvents = []ian.Event{}

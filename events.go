@@ -23,10 +23,75 @@ const (
 	EventTypeRecurrence
 )
 
+// EventPath specifies where to find an event, and its calendar.
+type EventPath interface {
+	Calendar() string
+	Name() string
+
+	String() string
+	Filepath(*Instance) string
+}
+
+type eventPath struct {
+	calendar,
+	name string
+}
+
+// TODO implement check against using '.'?
+// and when its needed (for cache (calendar) and recurrence (event name)), create the path without proper construction (raw)
+// NewEventPath safely constructs an EventPath from a calendar and name, which can be easily used for determining paths and filenames.
+// name may be modified.
+func NewEventPath(calendar, name string) (EventPath, error) {
+	illegalChars := "\n/" + string(filepath.Separator)
+
+	if calendar == "" || strings.ContainsAny(calendar, illegalChars + " ") {
+		return nil, fmt.Errorf("calendar '%s' contains illegal characters", calendar)
+	}
+
+  name = strings.TrimSpace(name)
+	if name == "" || strings.ContainsAny(name, illegalChars) {
+		return nil, fmt.Errorf("name '%s' contains illegal characters", name)
+	}
+
+	return &eventPath{
+		calendar: calendar,
+		name:     name,
+	}, nil
+}
+
+// NewFreeEventPath is like NewEventPath, but ensures that the filename is available, possibly by changing it.
+func NewFreeEventPath(instance *Instance, calendar, name string) (EventPath, error) {
+  safeName, err := instance.getAvailableFilename(filepath.Join(instance.Root, calendar), name)
+  if err != nil {
+    return nil, err
+  }
+  return NewEventPath(calendar, safeName)
+}
+
+func ParseEventPath(input string) (EventPath, error) {
+	cal, name := path.Split(input)
+	return NewEventPath(cal, name)
+}
+
+func (p *eventPath) Calendar() string {
+	return p.calendar
+}
+
+func (p *eventPath) Name() string {
+	return p.name
+}
+
+func (p *eventPath) String() string {
+	return path.Join(p.calendar, p.name)
+}
+
+func (p *eventPath) Filepath(instance *Instance) string {
+	return filepath.Join(instance.Root, p.calendar, p.name)
+}
+
 type Event struct {
-	// Path to event file relative to root.
-	// Use `filepath.ToSlash(filepath.Rel(root, filename))`.
-	Path  string
+	Path EventPath
+
 	Props EventProperties
 	Type  EventType
 	// Constant is true if the event should not be changed. Used for source events (cache) or the event is generated from a recurrance (RRule).
@@ -35,34 +100,23 @@ type Event struct {
 	Parent *Event
 }
 
-func (event *Event) GetFilepath(instance *Instance) string {
-	return filepath.Join(instance.Root, filepath.FromSlash(event.Path))
-}
-
-func (event *Event) GetCalendarName() string {
-	return SanitizePath(path.Dir(event.Path))
-}
-
 // Write writes the event to the appropriate location in 'instance'.
-// Creates any necessary directories.
 func (event *Event) Write(instance *Instance) error {
-	buf := new(bytes.Buffer)
-	if err := toml.NewEncoder(buf).Encode(event.Props); err != nil {
-		return err
-	}
-
-	path := event.GetFilepath(instance)
-	CreateDir(filepath.Dir(path)) // Create parent folder(s) leading to path.
-
-	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
-		return err
-	}
-
-	return nil
+  return event.Props.Write(event.Path.Filepath(instance))
 }
 
 func (event *Event) String() string {
-	return event.Path
+	return event.Path.String()
+}
+
+type Recurrence struct {
+	RRule  string
+	RDate  string
+	ExDate string
+}
+
+func (rec *Recurrence) IsThereRecurrence() bool {
+	return rec.RRule != "" || rec.RDate != ""
 }
 
 type EventProperties struct {
@@ -84,14 +138,19 @@ type EventProperties struct {
 	Modified time.Time
 }
 
-type Recurrence struct {
-	RRule  string
-	RDate  string
-	ExDate string
-}
+func (props *EventProperties) Write(file string) error {
+	buf := new(bytes.Buffer)
+	if err := toml.NewEncoder(buf).Encode(props); err != nil {
+		return err
+	}
 
-func (rec *Recurrence) IsThereRecurrence() bool {
-	return rec.RRule != "" || rec.RDate != ""
+	CreateDir(filepath.Dir(file)) // Create parent folder(s) leading to path.
+
+	if err := os.WriteFile(file, buf.Bytes(), 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (props *EventProperties) GetRruleSet() (rrule.Set, error) {
@@ -164,9 +223,10 @@ func (props *EventProperties) FormatName() string {
 	).Replace(props.Summary)
 }
 
+// TODO change path to type EventPath?
 func GetEvent(events *[]Event, path string) (*Event, error) {
 	for _, ev := range *events {
-		if ev.Path == path {
+		if ev.Path.String() == path {
 			return &ev, nil
 		}
 	}
@@ -183,4 +243,17 @@ func FilterEvents(events *[]Event, filter func(*Event) bool) []Event {
 	}
 
 	return filtered
+}
+
+func BuildEvent(path EventPath, props EventProperties, eType EventType) (Event, error) {
+	if err := props.Validate(); err != nil {
+		return Event{}, fmt.Errorf("failed validation: %s", err)
+	}
+
+	return Event{
+		Path:     path,
+		Props:    props,
+		Type:     eType,
+		Constant: eType == EventTypeCache,
+	}, nil
 }

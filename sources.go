@@ -15,7 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const CacheDirName string = "sources"
+const CacheCalendar string = ".sources"
 const CacheJournalFileName string = ".cache-journal.toml"
 const DefaultCacheLifetime time.Duration = 2 * time.Hour
 
@@ -126,7 +126,7 @@ func (instance *Instance) UpdateSources() error {
 	for name, journalSource := range journal.Sources {
 		source, ok := unsatisfiedSources[name]
 		if !ok {
-			log.Printf("warning: in cache journal '%s': source with the name '%s' does not exist.\n", path, name)
+			log.Printf("warning: in cache journal '%s': source with the name '%s' does not exist. use 'ian sources --clean' to resolve.\n", path, name)
 			continue
 		}
 
@@ -198,18 +198,74 @@ func (instance *Instance) UpdateSources() error {
 }
 
 func (instance *Instance) getCacheDir() string {
-	return filepath.Join(instance.Root, CacheDirName)
+	return filepath.Join(instance.Root, CacheCalendar)
 }
 
-func (instance *Instance) CacheEvent(name string, props EventProperties) error {
-	_, err := instance.WriteNewEvent(props, filepath.Join(CacheDirName, SanitizeFilepath(name)))
-	return err
+func (instance *Instance) ReadCachedEvents() ([]Event, error) {
+	events := []Event{}
+	cacheDir := instance.getCacheDir()
+
+	cacheDirInfo, err := os.Stat(cacheDir)
+
+	if os.IsNotExist(err) {
+		return events, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error checking cache dir '%s': %s", cacheDir, err)
+	}
+	if !cacheDirInfo.IsDir() {
+		return nil, fmt.Errorf("'%s' is not a directory.\n", cacheDir)
+	}
+
+	sourceDirs, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sourceDir := range sourceDirs {
+		if strings.HasPrefix(sourceDir.Name(), ".") {
+			continue
+		}
+		if _, ok := instance.Config.Sources[sourceDir.Name()]; !ok {
+			log.Printf("warning: ignored unknown source entry '%s' in '%s'. use 'ian sources --clean' to resolve.\n", sourceDir.Name(), cacheDir)
+			continue
+		}
+
+		propsList, err := instance.readDir(filepath.Join(cacheDir, sourceDir.Name()))
+		if err != nil {
+			return nil, err
+		}
+
+		for name, props := range propsList {
+			path, err := NewEventPath("."+sourceDir.Name(), name)
+			if err != nil {
+				return nil, err
+			}
+			events = append(events, Event{
+				Path:     path,
+				Props:    props,
+				Type:     EventTypeCache,
+				Constant: true,
+			})
+		}
+	}
+
+	return events, nil
+}
+
+func (instance *Instance) CacheEvent(subDir string, props EventProperties) error {
+  path := filepath.Join(instance.getCacheDir(), subDir)
+  name, err := instance.getAvailableFilename(path, props.FormatName())
+  if err != nil {
+    return err
+  }
+  return props.Write(filepath.Join(path, name))
 }
 
 // CacheEvents collectively caches a list of events under a certain directory.
 func (instance *Instance) CacheEvents(name string, eventsProps []EventProperties) error {
 	// First empty the specified cache directory
-	instance.clearDir(filepath.Join(CacheDirName, name))
+	instance.clearDir(filepath.Join(CacheCalendar, name))
 
 	for _, props := range eventsProps {
 		if err := instance.CacheEvent(name, props); err != nil {
@@ -218,8 +274,4 @@ func (instance *Instance) CacheEvents(name string, eventsProps []EventProperties
 	}
 
 	return nil
-}
-
-func IsPathInCache(relPath string) bool {
-	return strings.HasPrefix(relPath, CacheDirName+"/")
 }

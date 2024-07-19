@@ -44,7 +44,7 @@ func GetRoot() string {
 func checkCollision(events *[]ian.Event, props ian.EventProperties) {
 	if !ignoreCollisionWarnings || noCollision {
 		collidingEvents := ian.FilterEvents(events, func(e *ian.Event) bool {
-			return e.Props.Uid != props.Uid && !slices.Contains(collisionExceptions, e.GetCalendarName()) && ian.DoPeriodsMeet(props.GetTimeRange(), e.Props.GetTimeRange())
+			return e.Props.Uid != props.Uid && !slices.Contains(collisionExceptions, e.Path.Calendar()) && ian.DoPeriodsMeet(props.GetTimeRange(), e.Props.GetTimeRange())
 		})
 
 		if !ignoreCollisionWarnings {
@@ -215,11 +215,11 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 					var calendar string
 					for _, event := range eventsInDay {
 						if calendar == "" {
-							calendar = event.GetCalendarName()
+							calendar = event.Path.Calendar()
 							continue
 						}
 
-						if calendar != event.GetCalendarName() {
+						if calendar != event.Path.Calendar() {
 							sameCalendar = false
 							break
 						}

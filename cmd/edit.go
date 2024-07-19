@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -14,11 +13,13 @@ import (
 )
 
 const renameFlag string = "rename"
+const tweakNameFlag string = "tweak-name"
+const noRenameFlag string = "no-rename"
 const copyFlag string = "copy"
 const updateUidFlag string = "update-uid"
 
 var editFlags []string = []string{
-  renameFlag,
+	renameFlag,
 	copyFlag,
 	updateUidFlag,
 	eventFlag_Summary,
@@ -36,9 +37,13 @@ var editFlags []string = []string{
 }
 
 func init() {
-	editCmd.Flags().String(renameFlag, "", "Rename the event.")
+	editCmd.Flags().String(renameFlag, "", "Rename the event file.")
+	editCmd.Flags().Bool(tweakNameFlag, false, "When using '--rename', and the file name is taken, this will try to find a similar available name by adding a number suffix, instead of failing.")
+	editCmd.Flags().Bool(noRenameFlag, false, "Do not rename the event file if the summary is updated.")
 	editCmd.Flags().String(copyFlag, "", "Copy the event to the `destination` path, along with the changes.")
 	editCmd.Flags().Bool(updateUidFlag, false, "Update the UID of an event.")
+
+	editCmd.MarkFlagsMutuallyExclusive(renameFlag, noRenameFlag)
 
 	eventPropsCmd.AddCommand(editCmd)
 }
@@ -100,63 +105,79 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 
 	files := []string{}
 
-  syncMsg := "ian: edit "
-  if len(editEvents) > 1 {
-    syncMsg += fmt.Sprintf("%d events; ", len(editEvents))
-  } else {
-    syncMsg += "event: "
-  }
+	syncMsg := "ian: edit "
+	if len(editEvents) > 1 {
+		syncMsg += fmt.Sprintf("%d events; ", len(editEvents))
+	} else {
+		syncMsg += "event: "
+	}
 
 	for i, event := range editEvents {
 		if event.Constant {
 			log.Fatalf("'%s' is a constant event and cannot be modified.\n", event.Path)
 		}
 
-		files = append(files, event.GetFilepath(instance))
-    if i != 0 {
-      syncMsg += ", "
-    }
-    syncMsg += "'" + event.Path + "'"
+		files = append(files, event.Path.Filepath(instance))
+		if i != 0 {
+			syncMsg += ", "
+		}
+		syncMsg += "'" + event.Path.String() + "'"
 
-    if cmd.Flags().Changed(renameFlag) { // Rename operation
-      if len(editEvents) > 1 {
-        log.Fatal("rename cannot be used on multiple events")
-      }
-      newName, _ := cmd.Flags().GetString(renameFlag)
-      newPath := ian.SanitizePath(path.Join(path.Dir(event.Path), newName))
-      if newPath == event.Path {
-        log.Fatal("rename is trying to rename to the current name")
-      }
-      if _, err := ian.GetEvent(&events, newPath); err == nil {
-				log.Fatalf("a file with the path '%s' already exists.\n", newPath)
-      }
-			if ian.IsPathInCache(newPath) {
-				log.Fatal("cannot set calendar to inside cache")
+		if eventFlags.Changed(eventFlag_Summary) { // Summary
+			event.Props.Summary, _ = eventFlags.GetString(eventFlag_Summary)
+			if noRename, _ := cmd.Flags().GetBool(noRenameFlag); !noRename && !cmd.Flags().Changed(renameFlag) {
+				log.Println("summary change will cause file rename. '--no-rename' would prevent this.")
+				cmd.Flags().Set(renameFlag, event.Props.FormatName())
+				cmd.Flags().Set(tweakNameFlag, "1")
 			}
+		}
+		if cmd.Flags().Changed(renameFlag) { // Rename operation
+			if len(editEvents) > 1 {
+				log.Fatal("rename cannot be used on multiple events")
+			}
+			newName, _ := cmd.Flags().GetString(renameFlag)
+			var newPath ian.EventPath
+      var err error
+			if tweak, _ := cmd.Flags().GetBool(tweakNameFlag); !tweak {
+        // Use exactly this name
+				newPath, err = ian.NewEventPath(event.Path.Calendar(), newName)
+			} else {
+        // Find available name
+				newPath, err = ian.NewFreeEventPath(instance, event.Path.Calendar(), newName)
+      }
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if newPath == event.Path {
+				log.Fatal("rename is trying to rename to the current name")
+			}
+			if _, err := ian.GetEvent(&events, newPath.String()); err == nil {
+				log.Fatalf("a file with the path '%s' already exists. use the '--tweak-name' flag to append a number to the end of the file name to bypass this.\n", newPath)
+			}
+			oldFile := event.Path.Filepath(instance)
 			onWritten = append(onWritten, func() {
-				os.Remove(event.Path)
+				os.Remove(oldFile)
 			})
 			log.Printf("note: '%s' is being moved to '%s'.\n", event.Path, newPath)
 
-      event.Path = newPath
-    }
+			event.Path = newPath
+		}
 		if cmd.Flags().Changed(copyFlag) { // Copy operation
-      if len(editEvents) > 1 {
-        log.Fatal("copy cannot be used on multiple events")
-      }
-			event.Path, _ = cmd.Flags().GetString(copyFlag)
-			if _, err := ian.GetEvent(&events, event.Path); err == nil {
-				log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
+			if len(editEvents) > 1 {
+				log.Fatal("copy cannot be used on multiple events")
 			}
-			if ian.IsPathInCache(event.Path) {
-				log.Fatal("cannot set calendar to inside cache")
+			path, _ := cmd.Flags().GetString(copyFlag)
+			event.Path, err = ian.ParseEventPath(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if _, err := ian.GetEvent(&events, event.Path.String()); err == nil {
+				log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
 			}
 		}
 		if cmd.Flags().Changed(updateUidFlag) { // UID
 			event.Props.Uid = ian.GenerateUid()
-		}
-		if eventFlags.Changed(eventFlag_Summary) { // Summary
-			event.Props.Summary, _ = eventFlags.GetString(eventFlag_Summary)
 		}
 		if eventFlags.Changed(eventFlag_Start) { // Start
 			startString, _ := eventFlags.GetString(eventFlag_Start)
@@ -194,18 +215,17 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 			}
 		}
 		if eventFlags.Changed(eventFlag_Calendar) { // Calendar (move operation)
-      oldPath := event.Path
-			oldFile := event.GetFilepath(instance)
+			oldPath := event.Path
 			newCalendar, _ := eventFlags.GetString(eventFlag_Calendar)
-			event.Path = path.Join(newCalendar, path.Base(event.Path))
-			if e, _ := ian.GetEvent(&events, event.Path); e != nil {
+			event.Path, err = ian.NewEventPath(newCalendar, event.Path.Name())
+			if err != nil {
+				log.Fatal(err)
+			}
+			if e, _ := ian.GetEvent(&events, event.Path.String()); e != nil {
 				log.Fatalf("a file with the path '%s' already exists.\n", event.Path)
 			}
-			if ian.IsPathInCache(event.Path) {
-				log.Fatal("cannot set calendar to inside cache")
-			}
 			onWritten = append(onWritten, func() {
-				os.Remove(oldFile)
+				os.Remove(oldPath.Filepath(instance))
 			})
 			log.Printf("note: '%s' is being moved to '%s'.\n", oldPath, event.Path)
 		}
@@ -231,7 +251,7 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 		checkCollision(&events, event.Props)
 	}
 
-  syncMsg += "; " + strings.Join(modified, ", ")
+	syncMsg += "; " + strings.Join(modified, ", ")
 
 	err = instance.Sync(func() error {
 		for _, event := range editEvents {

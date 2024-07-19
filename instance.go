@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -29,25 +28,23 @@ func (instance *Instance) clearDir(name string) error {
 	return os.RemoveAll(filepath.Join(instance.Root, SanitizeFilepath(name)))
 }
 
-// NewEvent creates an event and returns it, without writing to disk.
-func (instance *Instance) NewEvent(props EventProperties, containerDir string) (Event, error) {
-	p, err := instance.getAvailableFilepath(filepath.FromSlash(
-		path.Join(SanitizePath(containerDir), SanitizePath(props.FormatName())),
-	))
+// NewEvent constructs a standard event based on properties, as a part of calendar.
+// NewEvent does not write anything.
+func (instance *Instance) NewEvent(props EventProperties, calendar string) (Event, error) {
+	p, err := NewFreeEventPath(instance, calendar, props.FormatName())
 	if err != nil {
 		return Event{}, err
 	}
 
 	return Event{
-		Path:  filepath.ToSlash(p),
+		Path:  p,
 		Props: props,
 	}, nil
 }
 
 // WriteNewEvent creates an event in the instance by writing it.
-// containerDir is a directory relative to the root that the event will be placed in (leave empty to set it directly in the root).
-func (instance *Instance) WriteNewEvent(props EventProperties, containerDir string) (*Event, error) {
-	event, err := instance.NewEvent(props, containerDir)
+func (instance *Instance) WriteNewEvent(props EventProperties, calendar string) (*Event, error) {
+	event, err := instance.NewEvent(props, calendar)
 	if err != nil {
 		return nil, err
 	}
@@ -59,60 +56,65 @@ func (instance *Instance) WriteNewEvent(props EventProperties, containerDir stri
 	return &event, nil
 }
 
-func (instance *Instance) getAvailableFilepath(originalPath string) (string, error) {
+// getAvailableFilename tries to generate an available name like originalName (with possible number suffix), in the directory dir.
+//
+// Note: Only the name is returned, NOT the entire path with dir.
+func (instance *Instance) getAvailableFilename(dir, originalName string) (string, error) {
 	var pathSuffix string
 
 	for i := 2; ; i++ {
-		if i > 10 {
-			return "", errors.New("cannot create file with that name: tried to add numerical suffix up to 10, but files by those names already exist.")
+		if i > 50 {
+			return "", errors.New("cannot create file with that name: tried to add numerical suffix up to 50, but files by those names already exist.")
 		}
 
-		if _, err := os.Stat(filepath.Join(instance.Root, originalPath+pathSuffix)); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, originalName+pathSuffix)); err != nil && os.IsNotExist(err) {
+      // File does not exist: safe to write file
+			return originalName + pathSuffix, nil
+		} else {
 			// File already exists
 			pathSuffix = "_" + fmt.Sprint(i)
 			continue
 		}
-
-		// Safe to write file
-		return originalPath + pathSuffix, nil
 	}
-}
-
-func (instance *Instance) ReadEvent(relPath string) (Event, error) {
-	relPath = SanitizePath(relPath)
-	path := filepath.Join(instance.Root, filepath.FromSlash(relPath))
-
-	props, err := parseEventFile(path)
-	if err != nil {
-		return Event{}, err
-	}
-
-	if err := props.Validate(); err != nil {
-		return Event{}, fmt.Errorf("failed validation: %s", err)
-	}
-
-	eType := EventTypeNormal
-
-	if IsPathInCache(relPath) {
-		eType = EventTypeCache
-	}
-
-	return Event{
-		Path:     relPath,
-		Props:    props,
-		Type:     eType,
-		Constant: eType == EventTypeCache,
-	}, nil
 }
 
 // ReadEvents reads all events in the instance that appear during the time range, and parses their recurrences.
 // If the time range is empty (From.IsZero() && To.IsZero()), then all events are shown,
 // and recurrences are shown within the range of the normal events.
 func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, error) {
-	events, err := instance.readDir(instance.Root)
+	events := []Event{}
+
+	calDirs, err := os.ReadDir(instance.Root)
 	if err != nil {
 		return nil, nil, err
 	}
+	for _, calDir := range calDirs {
+		if !calDir.IsDir() || strings.HasPrefix(calDir.Name(), ".") {
+			continue
+		}
+		propsList, err := instance.readDir(filepath.Join(instance.Root, calDir.Name()))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for name, props := range propsList {
+			path, err := NewEventPath(calDir.Name(), name)
+			if err != nil {
+				return nil, nil, err
+			}
+			events = append(events, Event{
+				Path:  path,
+				Props: props,
+				Type:  EventTypeNormal,
+			})
+		}
+	}
+
+	cached, err := instance.ReadCachedEvents()
+	if err != nil {
+		return nil, nil, err
+	}
+	events = append(events, cached...)
 
 	var earliestStart, latestEnd time.Time
 
@@ -146,8 +148,17 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 					newProps := event.Props
 					newProps.Start = recurrence
 					newProps.End = newProps.Start.Add(event.Props.End.Sub(event.Props.Start))
+
+					p, err := NewEventPath(
+						event.Path.Calendar(),
+						fmt.Sprintf(".%s_%d", event.Path.Name(), i),
+					)
+					if err != nil {
+						return nil, nil, err
+					}
+
 					events = append(events, Event{
-						Path:     fmt.Sprintf("%s_%d", path.Join(path.Dir(event.Path), "."+path.Base(event.Path)), i),
+						Path:     p,
 						Props:    newProps,
 						Type:     EventTypeRecurrence,
 						Constant: true,
@@ -172,44 +183,39 @@ func (instance *Instance) ReadEvents(timeRange TimeRange) ([]Event, []*Event, er
 	return events, unsatisfiedRecurrences, nil
 }
 
-// readDir reads a directory's events and directories recursively.
-func (instance *Instance) readDir(dir string) ([]Event, error) {
+// readDir reads a directory's events.
+// The returned map's keys are the base filenames of the corresponding properties.
+func (instance *Instance) readDir(dir string) (map[string]EventProperties, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	events := []Event{}
+	eventsProps := map[string]EventProperties{}
 
 	for _, entry := range entries {
-		path := filepath.Join(dir, entry.Name())
+		name := entry.Name()
+		path := filepath.Join(dir, name)
+
 		// Ignore dotfiles
-		if strings.HasPrefix(entry.Name(), ".") {
+		if strings.HasPrefix(name, ".") {
 			continue
 		}
 		if entry.IsDir() {
-			evs, err := instance.readDir(path)
-			if err != nil {
-				return nil, err
-			}
-			events = append(events, evs...)
-			continue
-		}
-		relPath, err := filepath.Rel(instance.Root, path)
-		if err != nil {
-			log.Printf("warning: path for '%s' failed and was ignored: %s\n", path, err)
+			log.Printf("warning: ignoring subdirectory '%s'. consider renaming it to start with a dot ('.'), to ignore it properly.\n", path)
 			continue
 		}
 
-		event, err := instance.ReadEvent(relPath)
+		props, err := parseEventFile(path)
 		if err != nil {
 			log.Printf("warning: event '%s' failed and was ignored: %s\n", path, err)
 			continue
 		}
-		events = append(events, event)
+
+		eventsProps[name] = props
 	}
 
-	return events, nil
+	return eventsProps, nil
 }
 
 func CreateInstance(root string) (*Instance, error) {

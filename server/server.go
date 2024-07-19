@@ -79,7 +79,7 @@ func (backend CalDavBackend) GetCalendarObject(ctx context.Context, path string,
 	}
 
 	events = ian.FilterEvents(&events, func(e *ian.Event) bool {
-		return e.GetCalendarName() == cal
+		return e.Path.Calendar() == cal
 	})
 
 	var lastModified time.Time
@@ -142,7 +142,7 @@ func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string,
 	// events are the current events.
 	events, _, err := backend.instance.ReadEvents(ian.TimeRange{})
 	events = ian.FilterEvents(&events, func(e *ian.Event) bool {
-		return e.GetCalendarName() == cal
+		return e.Path.Calendar() == cal
 	})
 
 	proposedEvents := calendar.Events()
@@ -160,7 +160,7 @@ func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string,
 				return "", errors.New("client wants to delete outdated event. synchronize changes first.")
 			}
 
-			file := event.GetFilepath(backend.instance)
+			file := event.Path.Filepath(backend.instance)
 
 			err := backend.instance.Sync(func() error {
 				return os.Remove(file)
@@ -196,7 +196,7 @@ func (backend CalDavBackend) PutCalendarObject(ctx context.Context, path string,
         return event.Write(backend.instance)
       }, ian.SyncEvent{
       	Type:    ian.SyncEventUpdate,
-      	Files:   []string{event.GetFilepath(backend.instance)},
+      	Files:   []string{event.Path.Filepath(backend.instance)},
         Message: fmt.Sprintf("ian: [CalDAV request] edit event '%s'", event.Path),
       }, false, nil)
 

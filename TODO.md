@@ -1,10 +1,7 @@
-* make calendars only one level deep (simplify)
-* separate "Path" in Event into both "Calendar" and "Name" (solves the whole filepath/path problem)
+* 'name' flag for 'add' command
 * start using something like zerolog?
-* create a confirmation flag for the delete command, to confirm each deletion before deleting
 * select calendars/events to view
 * colorless mode
-* maybe recurring events' paths should be the same as the parent?
 * make the 'add' command friendlier; allow aliases (now, today, tomorrow, wednesday)
 * make rrule, rdate and exdate friendlier
 * let user specify prefered datetime layouts
@@ -24,6 +21,7 @@
 * event categories
 * event statuses
 * make showing an individual day's events easier (and a shorthand for today 'ian today' / 'ian now')
+* make sources work offline
 * make source usage safer; dont overwrite a calendar before you have it, and handle unavailable calendars better (allow them, but warn).
 * vcard implementation?
 * vtodo implementation

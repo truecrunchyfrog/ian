@@ -11,6 +11,8 @@ import (
 )
 
 func init() {
+	deleteCmd.Flags().Bool("confirm", false, "Ask about each event before deleting.")
+
 	eventPropsCmd.AddCommand(deleteCmd)
 }
 
@@ -55,6 +57,23 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 		if event.Props.Recurrence.IsThereRecurrence() {
 			log.Printf("warning: '%s' is a recurring event and all recurrences will be deleted too.\n", event.Path)
 		}
+		if confirm, _ := cmd.Flags().GetBool("confirm"); confirm {
+			fmt.Printf("delete '%s'? (y/n/c) ", event.Path.String())
+			r := bufio.NewReader(os.Stdin)
+			input, err := r.ReadByte()
+			if err != nil {
+				log.Fatal(err)
+			}
+			switch input {
+			case 'y':
+			case 'n':
+				continue
+      case 'c':
+        log.Fatal("delete command canceled")
+			default:
+				log.Fatalf("invalid answer '%c'\n", input)
+			}
+		}
 		deleteEvents = append(deleteEvents, event)
 	}
 
@@ -72,12 +91,12 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 	filesToDelete := []string{}
 
 	for i, deleteEvent := range deleteEvents {
-		filesToDelete = append(filesToDelete, deleteEvent.GetFilepath(instance))
+		filesToDelete = append(filesToDelete, deleteEvent.Path.Filepath(instance))
 
 		if i != 0 {
 			syncMsg += ", "
 		}
-		syncMsg += "'" + deleteEvent.Path + "'"
+		syncMsg += "'" + deleteEvent.Path.String() + "'"
 
 		fmt.Printf("deleted event '%s'\n", deleteEvent.Path)
 	}

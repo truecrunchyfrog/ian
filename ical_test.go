@@ -29,7 +29,7 @@ func TestMigrateToThenFromIcal(t *testing.T) {
 		},
 	}
 
-	ical := ToIcal(events)
+	ical := ToIcal(events, "")
 	native, err := FromIcal(ical)
 	if err != nil {
 		t.Error(err)

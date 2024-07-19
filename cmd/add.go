@@ -130,7 +130,7 @@ func addCmdRun(cmd *cobra.Command, args []string) {
 		return event.Write(instance)
 	}, ian.SyncEvent{
 		Type:    ian.SyncEventCreate,
-		Files:   []string{event.GetFilepath(instance)},
-		Message: fmt.Sprintf("ian: create event '%s'", event.Path),
+		Files:   []string{event.Path.Filepath(instance)},
+		Message: fmt.Sprintf("ian: create event '%s'", event.Path.String()),
 	}, false, nil)
 }
