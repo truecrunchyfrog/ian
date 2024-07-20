@@ -34,7 +34,7 @@ func init() {
 var findCmd = &cobra.Command{
 	Use:     "find [-p path] [-s summary] [--before date] [--after date]",
 	Aliases: []string{"f", "q", "l", "list"},
-	Short:   "Query matches",
+	Short:   "Query events",
 	Args:    cobra.NoArgs,
 	Run:     findCmdRun,
 }

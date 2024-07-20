@@ -87,7 +87,7 @@ func init() {
 
 	rootCmd.Flags().Int("first-weekday", 2, "Specify the first day of the week by index (1 = Sunday, 2 = Monday, ... 7 = Saturday).")
 	rootCmd.Flags().BoolP("weeks", "w", false, "Show week numbers.")
-  rootCmd.Flags().IntP("months", "m", 3, "Total months to show. If more than one, the rest will be the months following the first.")
+	rootCmd.Flags().IntP("months", "m", 3, "Total months to show. If more than one, the rest will be the months following the first.")
 	rootCmd.Flags().BoolVarP(&emptyCalendar, "empty", "e", false, "Just an empty calendar.")
 	rootCmd.Flags().Bool("no-timeline", false, "Do not show the timeline.")
 	rootCmd.Flags().Bool("no-event-coloring", false, "Do not color the calendar days based on events occuring then.")
@@ -124,7 +124,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	firstWeekday := time.Weekday(viper.GetInt("first-weekday") - 1)
 	showWeeks := viper.GetBool("weeks")
 	widthPerDay := viper.GetUint("daywidth")
-  months := viper.GetInt("months")
+	months := viper.GetInt("months")
 
 	if firstWeekday != time.Monday && showWeeks {
 		log.Fatal("week numbers only if the first weekday is monday")
@@ -173,7 +173,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		ian.GetTimeZone(),
 		year,
 		time.Month(month),
-    months,
+		months,
 		firstWeekday,
 		showWeeks,
 		int(widthPerDay),
@@ -220,7 +220,75 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}), "\n")
 
 	if !emptyCalendar && !viper.GetBool("no-timeline") {
-		rightSide = strings.Split(ian.DisplayTimeline(instance, events, ian.GetTimeZone()), "\n")
+		var agenda string
+
+		// Day
+
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, ian.GetTimeZone())
+		todayRange := ian.TimeRange{
+			From: today,
+			To:   today.AddDate(0, 0, 1),
+		}
+		eventsToday := slices.Clone(events)
+		eventsToday = ian.FilterEvents(&eventsToday, func(e *ian.Event) bool {
+			return ian.DoPeriodsMeet(e.Props.GetTimeRange(), todayRange)
+		})
+
+		agenda += "\033[1;30;47m "
+		agenda += today.Format("Mon, 2 Jan")
+		agenda += " \033[0m"
+		agenda += ian.DisplayTimeline(instance, eventsToday, false, today, ian.GetTimeZone())
+
+		// Week
+
+		weekEnd := todayRange.To
+		for weekEnd.Weekday() != firstWeekday {
+			weekEnd = weekEnd.AddDate(0, 0, 1)
+		}
+		restOfWeekRange := ian.TimeRange{
+			From: todayRange.To,
+			To:   weekEnd,
+		}
+		eventsRestOfWeek := slices.Clone(events)
+		eventsRestOfWeek = ian.FilterEvents(&eventsRestOfWeek, func(e *ian.Event) bool {
+			return ian.DoPeriodsMeet(e.Props.GetTimeRange(), restOfWeekRange)
+		})
+
+		agenda += "\n\n\033[1m"
+		agenda += "Rest of the week"
+		if showWeeks {
+			_, week := today.ISOWeek()
+			agenda += fmt.Sprintf(" (%d)", week)
+		}
+		agenda += "\033[0m"
+		if len(eventsRestOfWeek) != 0 {
+			agenda += ian.DisplayTimeline(instance, eventsRestOfWeek, true, today, ian.GetTimeZone())
+		} else {
+			agenda += "\n\033[2;3mNothing more this week.\033[0m"
+		}
+
+		// Month
+
+		monthEnd := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, ian.GetTimeZone()).AddDate(0, 1, 0)
+		restOfMonthRange := ian.TimeRange{
+			From: restOfWeekRange.To,
+			To:   monthEnd,
+		}
+		eventsRestOfMonth := slices.Clone(events)
+		eventsRestOfMonth = ian.FilterEvents(&eventsRestOfMonth, func(e *ian.Event) bool {
+			return ian.DoPeriodsMeet(e.Props.GetTimeRange(), restOfMonthRange)
+		})
+
+		agenda += "\n\n\033[1m"
+		agenda += fmt.Sprintf("Rest of %s", today.Month())
+		agenda += "\033[0m"
+		if len(eventsRestOfMonth) != 0 {
+			agenda += ian.DisplayTimeline(instance, eventsRestOfMonth, true, today, ian.GetTimeZone())
+		} else {
+			agenda += "\n\033[2;3mNothing more this month.\033[0m"
+		}
+
+		rightSide = strings.Split(agenda, "\n")
 	}
 
 	if !emptyCalendar && !viper.GetBool("no-legend") {
@@ -230,7 +298,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	var indent int
 
 	for _, line := range leftSide {
-    if l := utf8.RuneCountInString(stripansi.Strip(line)); l > indent {
+		if l := utf8.RuneCountInString(stripansi.Strip(line)); l > indent {
 			indent = l + 5
 		}
 	}

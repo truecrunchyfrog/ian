@@ -37,20 +37,18 @@ type eventPath struct {
 	name string
 }
 
-// TODO implement check against using '.'?
-// and when its needed (for cache (calendar) and recurrence (event name)), create the path without proper construction (raw)
 // NewEventPath safely constructs an EventPath from a calendar and name, which can be easily used for determining paths and filenames.
 // name may be modified.
 func NewEventPath(calendar, name string) (EventPath, error) {
 	illegalChars := "\n/" + string(filepath.Separator)
 
 	if calendar == "" || strings.ContainsAny(calendar, illegalChars+" ") {
-		return nil, fmt.Errorf("calendar '%s' contains illegal characters", calendar)
+		return nil, fmt.Errorf("bad calendar name '%s'", calendar)
 	}
 
 	name = strings.TrimSpace(name)
 	if name == "" || strings.ContainsAny(name, illegalChars) {
-		return nil, fmt.Errorf("name '%s' contains illegal characters", name)
+		return nil, fmt.Errorf("bad event name '%s'", name)
 	}
 
 	return &eventPath{

@@ -3,6 +3,7 @@
     * let user specify prefered datetime layouts
     * togglable 24/12-hour clock
 * commands
+    * default calendar
     * make the 'add' command friendlier; allow aliases (now, today, tomorrow, wednesday)
     * make it easier to specify what calendar to add events to
     * make rrule, rdate and exdate friendlier
@@ -11,8 +12,9 @@
 * ui
     * better calendar view. improve the side by side view (make a function for it).
     * select calendars/events to view
-    * show multiple months in one view (let user specify months/years)
     * accentuate today and tomorrow/week in calendar view
+    * create a universal event view, that will be shown when creating it, editing it, deleting it and showing info about it
+    * list calendars command
 * implementations
     * CalDAV
         * server

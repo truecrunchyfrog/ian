@@ -38,7 +38,7 @@ func DisplayCalendar(
 	}
 
 	// Display the month days, per month
-	for unclampedMonth := fromMonth; unclampedMonth < fromMonth+time.Month(months); unclampedMonth++ {
+	for unclampedMonth := fromMonth - 1; unclampedMonth < fromMonth+time.Month(months)-1; unclampedMonth++ {
 		output += "\n"
 
 		y := fromYear + int(unclampedMonth-1)/12
@@ -142,14 +142,14 @@ func possibleEntryDate(current time.Time, lastShownDate *time.Time) string {
 	case current.YearDay() != now.YearDay() || current.Year() != now.Year():
 		// Not today:
 		format = "\033[2m" + format
-	default:
+	case strings.TrimSpace(date) != "":
 		// Today:
 		format = "\033[1;30;47m"
 	}
 	return fmt.Sprintf("%s%s%s%-6s\033[0m ", year, month, format, date)
 }
 
-func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Time, location *time.Location) string {
+func displayEntry(instance *Instance, entry *eventEntry, showDates bool, lastShownDate *time.Time, location *time.Location) string {
 	var output string
 
 	var startFmt, endFmt string
@@ -190,17 +190,22 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 
 		pipes := displayPipes(instance, entry)
 
-		entryDate := possibleEntryDate(start, lastShownDate)
-		entryDateLines := strings.Split(entryDate, "\n")
-		for i := 0; i < len(entryDateLines); i++ {
-			entryDateLines[i] += pipes
-		}
+		if showDates {
+			entryDate := possibleEntryDate(start, lastShownDate)
+			entryDateLines := strings.Split(entryDate, "\n")
+			for i := 0; i < len(entryDateLines); i++ {
+				entryDateLines[i] += pipes
+			}
+			output += strings.Join(entryDateLines, "\n")
+		} else {
+      output += pipes
+    }
 
-		output += strings.Join(entryDateLines, "\n") + GetEventRgbAnsiSeq(entry.event, instance, false) + prefix + entry.event.Props.Summary + suffix + "\033[0m"
+		output += GetEventRgbAnsiSeq(entry.event, instance, false) + prefix + entry.event.Props.Summary + suffix + "\033[0m"
 	}
 	for _, child := range entry.children {
 		// Children
-		output += "\n" + displayEntry(instance, child, lastShownDate, location)
+		output += "\n" + displayEntry(instance, child, showDates, lastShownDate, location)
 	}
 	if entry.event != nil && (len(entry.children) != 0 || entry.event.Props.Start.In(location).Day() != entry.event.Props.End.In(location).Add(-time.Second).Day()) {
 		// Tail
@@ -208,17 +213,24 @@ func displayEntry(instance *Instance, entry *eventEntry, lastShownDate *time.Tim
 		pipes := displayPipes(instance, entry)
 		innerPipes := displayPipes(instance, &eventEntry{parent: entry})
 
-		entryDate := possibleEntryDate(entry.event.Props.End.In(location), lastShownDate)
-		entryDateLines := strings.Split(entryDate, "\n")
-		for i := 0; i < len(entryDateLines); i++ {
-			if i != len(entryDateLines)-1 {
-				entryDateLines[i] += innerPipes
-			} else {
-				entryDateLines[i] += pipes
-			}
-		}
+		output += "\n"
 
-		output += "\n" + strings.Join(entryDateLines, "\n") + GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + " \033[22;2;9m" + entry.event.Props.Summary + "\033[0m"
+		if showDates {
+			entryDate := possibleEntryDate(entry.event.Props.End.In(location), lastShownDate)
+			entryDateLines := strings.Split(entryDate, "\n")
+			for i := 0; i < len(entryDateLines); i++ {
+				if i != len(entryDateLines)-1 {
+					entryDateLines[i] += innerPipes
+				} else {
+					entryDateLines[i] += pipes
+				}
+			}
+			output += strings.Join(entryDateLines, "\n")
+		} else {
+      output += pipes
+    }
+
+		output += GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + " \033[22;2;9m" + entry.event.Props.Summary + "\033[0m"
 	}
 	return output
 }
@@ -234,7 +246,7 @@ func displayPipes(instance *Instance, entry *eventEntry) string {
 	return strings.Join(pipes, "")
 }
 
-func DisplayTimeline(instance *Instance, events []Event, location *time.Location) string {
+func DisplayTimeline(instance *Instance, events []Event, showDates bool, lastShownDate time.Time, location *time.Location) string {
 	// Sort the events first:
 
 	slices.SortFunc(events, func(e1 Event, e2 Event) int {
@@ -270,8 +282,7 @@ func DisplayTimeline(instance *Instance, events []Event, location *time.Location
 
 	// Display the tree:
 
-	lastShownDate := time.Time{}
-	return displayEntry(instance, &rootEntry, &lastShownDate, location)
+	return displayEntry(instance, &rootEntry, showDates, &lastShownDate, location)
 }
 
 func DisplayUnsatisfiedRecurrences(instance *Instance, unsatisfiedRecurrences []*Event) string {

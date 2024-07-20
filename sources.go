@@ -45,8 +45,6 @@ func (i *CalendarSource) Import(name string) ([]EventProperties, error) {
 		log.Printf("source '%s' is being imported as '%s'\n", name, i.Type)
 	}
 	switch i.Type {
-	case "native": // TODO
-		return nil, errors.New("native calendars not yet supported")
 	case "caldav": // TODO
 		return nil, errors.New("caldav calendars not yet supported")
 	case "ical":

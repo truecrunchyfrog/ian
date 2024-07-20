@@ -71,7 +71,7 @@ func timelineCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("no events to show!")
 	}
 
-	fmt.Println(ian.DisplayTimeline(instance, events, ian.GetTimeZone()))
+	fmt.Println(ian.DisplayTimeline(instance, events, true, time.Time{}, ian.GetTimeZone()))
 	fmt.Println(ian.DisplayUnsatisfiedRecurrences(instance, unsatisfiedRecurrences))
 
 	if hide, _ := cmd.Flags().GetBool("no-legend"); !hide {
