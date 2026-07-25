@@ -13,9 +13,9 @@ var serverAddressCalDav string
 var serverDebugMode bool
 
 func init() {
-  serverCmd.Flags().StringVarP(&serverAddressNative, "address-ian", "i", ":5545", "The server address. Prefix with a semicolon like: ':5545', to just provide a port.")
-  serverCmd.Flags().StringVarP(&serverAddressCalDav, "address-caldav", "a", ":80", "The server address. Prefix with a semicolon like: ':5545', to just provide a port.")
-  serverCmd.Flags().BoolVarP(&serverDebugMode, "debug", "d", false, "Run server in debug mode.")
+	serverCmd.Flags().StringVarP(&serverAddressNative, "address-ian", "i", ":5545", "The server address. Prefix with a semicolon like: ':5545', to just provide a port.")
+	serverCmd.Flags().StringVarP(&serverAddressCalDav, "address-caldav", "a", ":80", "The server address. Prefix with a semicolon like: ':5545', to just provide a port.")
+	serverCmd.Flags().BoolVarP(&serverDebugMode, "debug", "d", false, "Run server in debug mode.")
 
 	rootCmd.AddCommand(serverCmd)
 }
@@ -32,5 +32,5 @@ func serverCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  server.Run(serverAddressNative, serverAddressCalDav, serverDebugMode, instance)
+	server.Run(serverAddressNative, serverAddressCalDav, serverDebugMode, instance)
 }

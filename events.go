@@ -142,7 +142,9 @@ func (props *EventProperties) Write(file string) error {
 		return err
 	}
 
-	CreateDir(filepath.Dir(file)) // Create parent folder(s) leading to path.
+	if err := CreateDir(filepath.Dir(file)); err != nil { // Create parent folder(s) leading to path.
+		return err
+	}
 
 	if err := os.WriteFile(file, buf.Bytes(), 0644); err != nil {
 		return err

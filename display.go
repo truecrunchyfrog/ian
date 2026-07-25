@@ -198,8 +198,8 @@ func displayEntry(instance *Instance, entry *eventEntry, showDates bool, lastSho
 			}
 			output += strings.Join(entryDateLines, "\n")
 		} else {
-      output += pipes
-    }
+			output += pipes
+		}
 
 		output += GetEventRgbAnsiSeq(entry.event, instance, false) + prefix + entry.event.Props.Summary + suffix + "\033[0m"
 	}
@@ -227,8 +227,8 @@ func displayEntry(instance *Instance, entry *eventEntry, showDates bool, lastSho
 			}
 			output += strings.Join(entryDateLines, "\n")
 		} else {
-      output += pipes
-    }
+			output += pipes
+		}
 
 		output += GetEventRgbAnsiSeq(entry.event, instance, false) + "└🡲 \033[1m" + endFmt + " \033[22;2;9m" + entry.event.Props.Summary + "\033[0m"
 	}

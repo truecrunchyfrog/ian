@@ -12,7 +12,6 @@
 * ui
     * better calendar view. improve the side by side view (make a function for it).
     * select calendars/events to view
-    * accentuate today and tomorrow/week in calendar view
     * create a universal event view, that will be shown when creating it, editing it, deleting it and showing info about it
     * list calendars command
 * implementations
@@ -20,9 +19,11 @@
         * server
         * client
     * vCard (?)
-    * vTodo
+    * VTODO
+    * VALARM
     * Zerolog (?)
 * migration
+    * unused parsed iCalendar parameters should be saved in a map and readded when serializing
     * allow user to export/import calendars from/to ical, without adding as source. instead, use a command to migrate the ical file and provide a destination directory. also allow it the other way - exporting a native ian calendar to an ical. this will be more standalone than using sources, with more freedom of choice. this will work in tandem with archiving.
     * archiving
     * create busy/free system and replace the "collision" system with it. check out event tranparency (TRANSP).

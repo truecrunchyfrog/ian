@@ -17,7 +17,7 @@ func init() {
 }
 
 var deleteCmd = &cobra.Command{
-	Use:     "rm event...",
+	Use:     "rm [event...]",
 	Aliases: []string{"remove", "rem", "delete", "del", "d"},
 	Short:   "Delete event(s)",
 	Run:     deleteCmdRun,
@@ -68,8 +68,8 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 			case 'y':
 			case 'n':
 				continue
-      case 'c':
-        log.Fatal("delete command canceled")
+			case 'c':
+				log.Fatal("delete command canceled")
 			default:
 				log.Fatalf("invalid answer '%c'\n", input)
 			}

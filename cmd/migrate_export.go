@@ -47,6 +47,7 @@ var migrateExportCmd = &cobra.Command{
 	Use:   "export [-f file | -d dir]",
 	Short: "Export to iCalendar.",
 	Long:  "If both file and directory are left out, all output is sent to stdout.",
+	Args:  cobra.NoArgs,
 	Run:   migrateExportCmdRun,
 }
 
@@ -101,51 +102,53 @@ func migrateExportCmdRun(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("file") {
 		fileDest, _ := cmd.Flags().GetString("file")
 		ics := ian.ToIcal(events, "")
-    out, err := ian.SerializeIcal(ics)
-    if err != nil {
-      log.Fatal(err)
-    }
+		out, err := ian.SerializeIcal(ics)
+		if err != nil {
+			log.Fatal(err)
+		}
 		if err := os.WriteFile(fileDest, out.Bytes(), 0644); err != nil {
 			log.Fatal(err)
 		}
 	} else if cmd.Flags().Changed("directory") {
 		dirDest, _ := cmd.Flags().GetString("directory")
-		ian.CreateDir(dirDest)
+		if err := ian.CreateDir(dirDest); err != nil {
+			log.Fatal(err)
+		}
 
 		eventsByCal := map[string][]ian.Event{}
 
 		for _, event := range events {
-      cal := event.Path.Calendar()
+			cal := event.Path.Calendar()
 			calEvents := eventsByCal[cal]
 			if calEvents == nil {
 				calEvents = []ian.Event{}
 			}
-      eventsByCal[cal] = append(calEvents, event)
+			eventsByCal[cal] = append(calEvents, event)
 		}
 
 		for cal, events := range eventsByCal {
-      if cal == "." {
-        cal = "main"
-      }
+			if cal == "." {
+				cal = "main"
+			}
 			filename := strings.NewReplacer(
 				"-", "",
 				"/", "-",
 			).Replace(cal) + ".ics"
 			ics := ian.ToIcal(events, "")
-      out, err := ian.SerializeIcal(ics)
-      if err != nil {
-        log.Fatal(err)
-      }
+			out, err := ian.SerializeIcal(ics)
+			if err != nil {
+				log.Fatal(err)
+			}
 			if err := os.WriteFile(filepath.Join(dirDest, filename), out.Bytes(), 0644); err != nil {
 				log.Fatal(err)
 			}
 		}
 	} else {
-    ics := ian.ToIcal(events, "")
-    out, err := ian.SerializeIcal(ics)
-    if err != nil {
-      log.Fatal(err)
-    }
-		fmt.Print(out)
+		ics := ian.ToIcal(events, "")
+		out, err := ian.SerializeIcal(ics)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Print(out.String())
 	}
 }

@@ -49,7 +49,7 @@ func init() {
 }
 
 var editCmd = &cobra.Command{
-	Use:     "edit event...",
+	Use:     "edit [event...]",
 	Aliases: []string{"e", "ed", "ch", "m", "mod", "modify"},
 	Short:   "Edit an event's properties",
 	Run:     editCmdRun,
@@ -137,14 +137,14 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 			}
 			newName, _ := cmd.Flags().GetString(renameFlag)
 			var newPath ian.EventPath
-      var err error
+			var err error
 			if tweak, _ := cmd.Flags().GetBool(tweakNameFlag); !tweak {
-        // Use exactly this name
+				// Use exactly this name
 				newPath, err = ian.NewEventPath(event.Path.Calendar(), newName)
 			} else {
-        // Find available name
+				// Find available name
 				newPath, err = ian.NewFreeEventPath(instance, event.Path.Calendar(), newName)
-      }
+			}
 			if err != nil {
 				log.Fatal(err)
 			}

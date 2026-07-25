@@ -23,7 +23,7 @@ func init() {
 	findCmd.Flags().String("before", "", "Events must end before this datetime.")
 	findCmd.Flags().String("after", "", "Events must start after this datetime.")
 	findCmd.Flags().Bool("exclusive", false, "When combined with 'before' and/or 'after', the entire event time ranges must occur outside of these limits (e.g., if 'before' is set to 01-04-1991, then an event cannot start before and end after 1 April; the entire time range must be confined before that datetime).")
-  findCmd.Flags().BoolP("one", "1", false, "Exit if the query does not match exactly one event.")
+	findCmd.Flags().BoolP("one", "1", false, "Exit if the query does not match exactly one event.")
 
 	findCmd.MarkFlagsMutuallyExclusive("at", "before")
 	findCmd.MarkFlagsMutuallyExclusive("at", "after")
@@ -148,9 +148,9 @@ func findCmdRun(cmd *cobra.Command, args []string) {
 		return true
 	})
 
-  if one, _ := cmd.Flags().GetBool("one"); one && len(events) != 1 {
-    log.Fatalf("expected one result, got %d\n", len(events))
-  }
+	if one, _ := cmd.Flags().GetBool("one"); one && len(events) != 1 {
+		log.Fatalf("expected one result, got %d\n", len(events))
+	}
 
 	for _, event := range events {
 		fmt.Println(event.Path)

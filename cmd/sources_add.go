@@ -27,35 +27,35 @@ var sourcesAddCmd = &cobra.Command{
 
 func sourcesAddCmdRun(cmd *cobra.Command, args []string) {
 	if lifetime != "" {
-    if _, err := time.ParseDuration(lifetime); err != nil {
-      log.Fatal(err)
-    }
+		if _, err := time.ParseDuration(lifetime); err != nil {
+			log.Fatal(err)
+		}
 	}
 
-  name, _type, source := args[0], args[1], args[2]
+	name, _type, source := args[0], args[1], args[2]
 
 	config, err := ian.ReadConfig(GetRoot())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-  if config.Sources == nil {
-    config.Sources = map[string]ian.CalendarSource{}
-  }
+	if config.Sources == nil {
+		config.Sources = map[string]ian.CalendarSource{}
+	}
 
-  if _, ok := config.Sources[name]; ok {
-    log.Fatalf("a source with the name '%s' is already configured.\n", name)
-  }
+	if _, ok := config.Sources[name]; ok {
+		log.Fatalf("a source with the name '%s' is already configured.\n", name)
+	}
 
-  config.Sources[name] = ian.CalendarSource{
-  	Source:   source,
-  	Type:     _type,
-  	Lifetime: lifetime,
-  }
+	config.Sources[name] = ian.CalendarSource{
+		Source:   source,
+		Type:     _type,
+		Lifetime: lifetime,
+	}
 
-  if err := ian.WriteConfig(GetRoot(), config); err != nil {
-    log.Fatal(err)
-  }
+	if err := ian.WriteConfig(GetRoot(), config); err != nil {
+		log.Fatal(err)
+	}
 
-  fmt.Printf("source '%s' added\n", name)
+	fmt.Printf("source '%s' added\n", name)
 }

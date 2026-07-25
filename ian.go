@@ -28,18 +28,12 @@ func GetTimeZone() *time.Location {
 		return time.Local
 	}
 
-	t1, err := time.Parse("MST", timeZoneFlag)
-
-	if err == nil {
-		TimeZone = t1.Location()
-	} else {
-		t2, err := time.Parse("-0700", timeZoneFlag)
-		if err != nil {
-			log.Fatal("invalid time zone '" + timeZoneFlag + "'")
-		}
-
-		TimeZone = t2.Location()
+	t, err := time.LoadLocation(timeZoneFlag)
+	if err != nil {
+		log.Fatalf("invalid time zone '%s': %s", timeZoneFlag, err)
 	}
+
+	TimeZone = t
 
 	return TimeZone
 }
@@ -62,7 +56,9 @@ func CreateDir(name string) error {
 }
 
 func CreateFileIfMissing(name string) error {
-	CreateDir(filepath.Dir(name))
+	if err := CreateDir(filepath.Dir(name)); err != nil {
+		return err
+	}
 	if f, err := os.OpenFile(name, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err != nil {
 		return err
 	} else {

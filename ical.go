@@ -3,9 +3,14 @@ package ian
 import (
 	"bytes"
 	"io"
+	"log"
+	"slices"
 	"time"
 
+	"time/tzdata"
+
 	"github.com/emersion/go-ical"
+	"github.com/thlib/go-timezone-local/tzlocal"
 )
 
 func FromIcalEvent(icalEvent ical.Event) (EventProperties, error) {
@@ -86,7 +91,7 @@ func ToIcal(events []Event, calendarName string) *ical.Calendar {
 		cal.Props.SetText("X-WR-CALNAME", calendarName)
 	}
 
-	now := time.Now()
+	now := time.Now().In(GetTimeZone())
 	cal.Props.SetDateTime(IcalPropGrabTimestamp, now)
 
 	for _, event := range events {
@@ -125,6 +130,47 @@ func ToIcal(events []Event, calendarName string) *ical.Calendar {
 		}
 
 		cal.Children = append(cal.Children, icalEvent.Component)
+	}
+
+	coveredTimezones := []string{}
+
+	for _, child := range cal.Children {
+		for _, propList := range child.Props {
+			for _, prop := range propList {
+				t, err := prop.DateTime(time.UTC)
+				if err == nil {
+					tz := t.Location().String()
+					if tz == "Local" {
+						// replace "Local" with the actual timezone name
+						// both for the vtimezone to work and for transparency
+						tz, err = tzlocal.RuntimeTZ()
+						if err != nil {
+							panic("cannot get local runtime timezone")
+						}
+					}
+					newLoc, err := time.LoadLocation(tz)
+					if err != nil {
+						panic("cannot load timezone by name: " + tz)
+					}
+					child.Props.SetDateTime(prop.Name, t.In(newLoc))
+
+					if !slices.Contains(coveredTimezones, tz) {
+						coveredTimezones = append(coveredTimezones, tz)
+
+						// Add a VTIMEZONE component for this timezone (first occurrence).
+
+						timezoneComp := ical.NewComponent(ical.CompTimezone)
+
+            tzid := ical.NewProp("TZID")
+            tzid.SetText(tz)
+						timezoneComp.Props.Add(tzid)
+            // TODO add further components and properties to timezoneComp
+
+						cal.Children = append(cal.Children, timezoneComp)
+					}
+				}
+			}
+		}
 	}
 
 	return cal

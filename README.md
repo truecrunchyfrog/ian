@@ -111,7 +111,7 @@ Each source is cached and updated. When a cached calendar has reached its `lifet
 
 # one more time!
 [sources.mary]
-  source = "webcal://canoga-park.net/caldav/mary"
+  source = "webcal://example.com/caldav/mary"
   type = "caldav" # an editable calendar
 ```
 
@@ -119,7 +119,7 @@ Each source is cached and updated. When a cached calendar has reached its `lifet
 |-----------|-------------------|-----------------------------------------------|----------------------------------|----------|---------|
 | source    |iCal/WebCal URL    | URL to download cache from, or CalDAV server. |`https://example.com/schedule.ics`|          |         |
 | type      |`ical` or `caldav` | Type of source.                               |`ical`                            |          |         |
-| lifetime  |`_h_m_s` lifetime  | For how long the source should be cached.     |`3h40m`                           | optional | 2h      |
+| lifetime  |`_h_m_s` lifetime  | For how long the source should be cached.     |`3h40m`                           | optional | `2h`    |
 
 #### Calendars
 In `calendars`, you can configure the behavior of both local and cached calendars (from sources).
@@ -144,7 +144,7 @@ Each hook is listed by name in `hooks` (e.g. `hooks.peter`).
 |------------|-------------------|-------------------------------------------------|-----------------------------------------|----------|---------|
 | precommand |Shell command      | Shell command executed before files are updated.|`echo "before: $(date) $MESSAGE" >> log` | optional |         |
 | postcommand|Shell command      | Shell command executed after files are updated. |`echo "after:  $(date) $MESSAGE" >> log` | optional |         |
-| type       |Bitmask (integer)  | What type of updates the hook should react on; 0 = any, 1 = ping (manual sync), 2 = event created, 4 = event updated, 8 = event deleted. Sum multiple to combine them.                                                  |`10` (only on creation and deletion)      |          |         |
+| type       |Bitmask (integer)  | What type of updates the hook should react on; 0 = any, 1 = ping (manual sync), 2 = event created, 4 = event updated, 8 = event deleted. Sum multiple to combine them.                                                  |`10` (only on creation and deletion)     | optional | `0`     |
 | cooldown   |`_h_m_s` cooldown  | Time to wait before executing again.            |`1h`                                     | optional | `0s`    |
 
 Keep in mind that manual file operations do not trigger these hooks. Only operations performed by the ian client or server do.

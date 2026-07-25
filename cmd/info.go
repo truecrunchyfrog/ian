@@ -15,7 +15,7 @@ func init() {
 }
 
 var infoCmd = &cobra.Command{
-	Use:     "info event...",
+	Use:     "info [event...]",
 	Aliases: []string{"about", "i"},
 	Short:   "View event(s) info",
 	Run:     infoCmdRun,

@@ -23,11 +23,11 @@ func init() {
 }
 
 var sourcesCmd = &cobra.Command{
-	Use:   "sources",
-  Aliases: []string{"src", "srcs"},
-	Short: "Manage and view sources",
-	Args:  cobra.NoArgs,
-	Run:   sourcesCmdRun,
+	Use:     "sources",
+	Aliases: []string{"src", "srcs"},
+	Short:   "Manage and view sources",
+	Args:    cobra.NoArgs,
+	Run:     sourcesCmdRun,
 }
 
 func sourcesCmdRun(cmd *cobra.Command, args []string) {
@@ -36,29 +36,29 @@ func sourcesCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-  if clean {
-    log.Println("cleaning...")
-    if err := instance.CleanSources(); err != nil {
-      log.Fatal(err)
-    }
-  }
+	if clean {
+		log.Println("cleaning...")
+		if err := instance.CleanSources(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
-  for _, name := range updateSources {
-    if _, ok := instance.Config.Sources[name]; !ok {
-      log.Fatalf("no such source: '%s'\n", name)
-    }
-  }
+	for _, name := range updateSources {
+		if _, ok := instance.Config.Sources[name]; !ok {
+			log.Fatalf("no such source: '%s'\n", name)
+		}
+	}
 
 	for name, source := range instance.Config.Sources {
 		fmt.Printf("'%s' (%s): \033[2m%s\033[22m\n", name, source.Type, source.Source)
 
 		if updateAll || slices.Contains(updateSources, name) {
 			fmt.Printf("(updating '%s'...)\n", name)
-      if err := source.ImportAndUse(instance, name); err != nil {
-        log.Fatal(err)
-      }
+			if err := source.ImportAndUse(instance, name); err != nil {
+				log.Fatal(err)
+			}
 		}
 
-    fmt.Println()
+		fmt.Println()
 	}
 }
